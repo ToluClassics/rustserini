@@ -10,6 +10,7 @@ rust-bert = "0.20.0"
 ndarray = "0.15.6"
 tch = "0.10.0"
 rust_tokenizers = "8.1.0"
+serde_json = "1.0"
 
 [[example]]
 name = "embedding_generator"

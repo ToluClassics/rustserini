@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+extern crate serde_json;
+use serde_json::{Map, Number, Value};
+use std::{collections::HashMap, process::ChildStderr};
 
 pub trait DocumentEncoder {
     // instantiating a new DocumentEncoder instance
@@ -16,4 +18,15 @@ pub trait DocumentEncoder {
 pub trait QueryEncoder {
     // Encode a query into a vector of floats
     fn encode(&self, query: &str, kwargs: HashMap<&str, &str>) -> Vec<f64>;
+}
+
+pub trait RepresentationWriter {
+    // Write a representation to a file
+    fn write(&self, batch_info: &HashMap<&str, Value>, fields: &Vec<String>);
+
+    // Create a new instance of a RepresentationWriter
+    fn new(path: &str) -> Self;
+
+    // Open File
+    fn open_file(&mut self);
 }
