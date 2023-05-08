@@ -2,7 +2,7 @@
 mod tests {
     use rustserini::encode::auto::AutoDocumentEncoder;
     use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
-    use rustserini::encode::vector_writer::JsonlRepresentationWriter;
+    use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
     use serde_json::{Map, Number, Value};
     use std::collections::HashMap;
 
@@ -69,5 +69,13 @@ mod tests {
         );
         let fields = vec!["text".to_string(), "title".to_string()];
         writer.write(&batch_info, &fields);
+    }
+
+    #[test]
+    fn test_jsonl_collection_iterator() {
+        let path = "example_directory";
+        let fields: Vec<&str> = vec!["docid", "text", "title"];
+        let delimiter = "\t";
+        let mut iterator = JsonlCollectionIterator::new(path, Some(fields), delimiter);
     }
 }

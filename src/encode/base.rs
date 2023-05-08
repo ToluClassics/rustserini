@@ -1,6 +1,6 @@
 extern crate serde_json;
 use serde_json::{Map, Number, Value};
-use std::{collections::HashMap, process::ChildStderr};
+use std::collections::HashMap;
 
 pub trait DocumentEncoder {
     // instantiating a new DocumentEncoder instance
