@@ -1,10 +1,10 @@
 extern crate serde_json;
-use serde_json::{Map, Number, Value};
+use serde_json::Value;
 use std::collections::HashMap;
 
 pub trait DocumentEncoder {
     // instantiating a new DocumentEncoder instance
-    fn new(model_name: &str, tokenizer_name: Option<&str>, pooling: &str, l2_norm: bool) -> Self;
+    fn new(model_name: &str, tokenizer_name: Option<&str>) -> Self;
 
     // Encode a document or a set of documents into a vector of floats
     fn encode(

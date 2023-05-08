@@ -3,17 +3,15 @@ mod tests {
     use rustserini::encode::auto::AutoDocumentEncoder;
     use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
     use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
-    use serde_json::{Map, Number, Value};
+    use serde_json::{Number, Value};
     use std::collections::HashMap;
 
     #[test]
     fn test_auto_document_encoder() {
         let model_name = "bert-base-uncased";
         let tokenizer_name = None;
-        let pooling = "mean";
-        let l2_norm = false;
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, tokenizer_name, pooling, l2_norm);
+            AutoDocumentEncoder::new(model_name, tokenizer_name);
 
         let texts = vec![
             "Hello, I am a sentence!".to_string(),

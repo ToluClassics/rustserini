@@ -1,7 +1,7 @@
 use crate::encode::base::RepresentationWriter;
 use flate2::read::GzDecoder;
 use kdam::tqdm;
-use serde_json::{json, Map, Number, Value};
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -28,7 +28,7 @@ impl RepresentationWriter for JsonlRepresentationWriter {
     fn write(
         self: &JsonlRepresentationWriter,
         batch_info: &HashMap<&str, Value>,
-        fields: &Vec<std::string::String>,
+        _fields: &Vec<std::string::String>,
     ) {
         let mut file = match &self.file {
             Some(file) => file,
@@ -79,7 +79,11 @@ impl RepresentationWriter for JsonlRepresentationWriter {
 }
 
 impl<'a> JsonlCollectionIterator<'a> {
-    pub fn new(collection_path: &'a str, fields: Option<Vec<&'a str>>, delimiter: &'a str) -> Self {
+    pub fn new(
+        _collection_path: &'a str,
+        fields: Option<Vec<&'a str>>,
+        delimiter: &'a str,
+    ) -> Self {
         let fields = match fields {
             Some(f) => f,
             None => vec!["text"],
@@ -121,7 +125,7 @@ impl<'a> JsonlCollectionIterator<'a> {
             let file = File::open(filename.clone()).map_err(|err| err.to_string());
             let gz = GzDecoder::new(file.unwrap());
             let reader = BufReader::new(gz);
-            let mut lines = reader
+            let lines = reader
                 .lines()
                 .map(|line| line.map_err(|err| err.to_string()));
 
