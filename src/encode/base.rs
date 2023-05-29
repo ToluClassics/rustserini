@@ -22,7 +22,7 @@ pub trait QueryEncoder {
 
 pub trait RepresentationWriter {
     // Write a representation to a file
-    fn write(&self, batch_info: &HashMap<&str, Value>, fields: &Vec<String>);
+    fn write(&self, batch_info: &HashMap<&str, Value>);
 
     // Create a new instance of a RepresentationWriter
     fn new(path: &str) -> Self;

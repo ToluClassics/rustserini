@@ -26,11 +26,7 @@ pub struct JsonlCollectionIterator<'a> {
 
 impl RepresentationWriter for JsonlRepresentationWriter {
     // Write a representation to a file
-    fn write(
-        self: &JsonlRepresentationWriter,
-        batch_info: &HashMap<&str, Value>,
-        _fields: &Vec<std::string::String>,
-    ) {
+    fn write(self: &JsonlRepresentationWriter, batch_info: &HashMap<&str, Value>) {
         let mut file = match &self.file {
             Some(file) => file,
             None => {
@@ -201,8 +197,8 @@ impl<'a> JsonlCollectionIterator<'a> {
     }
 
     fn parse_fields_from_info(&self, info: &serde_json::Value) -> Result<Vec<String>, String> {
-        /// Parse fields from info
-        ///
+        // Parse fields from info
+
         let n_fields = self.fields.len();
 
         if self.fields.iter().all(|&field| info.get(field).is_some()) {

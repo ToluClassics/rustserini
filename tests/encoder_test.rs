@@ -65,8 +65,8 @@ mod tests {
                 ]),
             ]),
         );
-        let fields = vec!["text".to_string(), "title".to_string()];
-        writer.write(&batch_info, &fields);
+        let fields = vec![&"text".to_string(), &"title".to_string()];
+        writer.write(&batch_info);
     }
 
     #[test]
