@@ -5,10 +5,6 @@ use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresenta
 use serde_json::{Number, Value};
 use std::collections::HashMap;
 
-fn type_of<T>(_: &T) -> &'static str {
-    std::any::type_name::<T>()
-}
-
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -153,6 +149,6 @@ fn main() {
 
         batch_info.insert("vector", Value::Array(embeddings));
 
-        &writer.write(&batch_info);
+        let _ = &writer.write(&batch_info);
     }
 }
