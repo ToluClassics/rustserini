@@ -12,19 +12,11 @@ use tch::{nn, no_grad, Device, Tensor};
 pub struct AutoDocumentEncoder {
     model: BertForSentenceEmbeddings,
     tokenizer: BertTokenizer,
-    pooling: String,
-    l2_norm: bool,
-    device: Device,
 }
 
 impl DocumentEncoder for AutoDocumentEncoder {
     // instantiating a new AutoDocumentEncoder instance
-    fn new(
-        model_name: &str,
-        tokenizer_name: Option<&str>,
-        pooling: &str,
-        l2_norm: bool,
-    ) -> AutoDocumentEncoder {
+    fn new(_model_name: &str, _tokenizer_name: Option<&str>) -> AutoDocumentEncoder {
         let device = Device::cuda_if_available();
         let mut vs = nn::VarStore::new(device);
         let model_config_resource = RemoteResource::from_pretrained(BertConfigResources::BERT);
@@ -40,13 +32,7 @@ impl DocumentEncoder for AutoDocumentEncoder {
         let tokenizer = BertTokenizer::from_file(tokenizer_path.to_str().unwrap(), true, true)
             .expect("Couldn't build tokenizer");
 
-        Self {
-            model,
-            tokenizer,
-            pooling: pooling.to_string(),
-            l2_norm,
-            device,
-        }
+        Self { model, tokenizer }
     }
 
     fn encode(

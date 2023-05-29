@@ -2,18 +2,16 @@
 mod tests {
     use rustserini::encode::auto::AutoDocumentEncoder;
     use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
-    use rustserini::encode::vector_writer::JsonlRepresentationWriter;
-    use serde_json::{Map, Number, Value};
+    use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
+    use serde_json::{Number, Value};
     use std::collections::HashMap;
 
     #[test]
     fn test_auto_document_encoder() {
         let model_name = "bert-base-uncased";
         let tokenizer_name = None;
-        let pooling = "mean";
-        let l2_norm = false;
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, tokenizer_name, pooling, l2_norm);
+            AutoDocumentEncoder::new(model_name, tokenizer_name);
 
         let texts = vec![
             "Hello, I am a sentence!".to_string(),
@@ -69,5 +67,24 @@ mod tests {
         );
         let fields = vec!["text".to_string(), "title".to_string()];
         writer.write(&batch_info, &fields);
+    }
+
+    #[test]
+    fn test_jsonl_collection_iterator() {
+        let path = "tests/test_files";
+        let fields: Vec<&str> = vec!["docid", "text", "title"];
+        let delimiter = "\t";
+        let batch_size = 2;
+        let mut iterator =
+            JsonlCollectionIterator::new(&path, Some(fields), delimiter, &batch_size);
+
+        iterator.load();
+        assert_eq!(iterator.size, 10);
+        assert_eq!(iterator.all_info["docid"].as_array().unwrap().len(), 10);
+
+        assert_eq!(
+            iterator.iter().next().unwrap()["title"][0],
+            String::from("\"Introduction\"")
+        );
     }
 }

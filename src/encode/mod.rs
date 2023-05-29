@@ -6,4 +6,4 @@ pub mod vector_writer;
 
 pub use auto::AutoDocumentEncoder;
 pub use base::DocumentEncoder;
-pub use vector_writer::JsonlRepresentationWriter;
+pub use vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
