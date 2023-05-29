@@ -14,6 +14,8 @@ serde_json = "1.0"
 flate2 = "1.0"
 kdam = "0.3.0"
 tokenizers = "0.13.3"
+clap = "4.2.7"
+structopt = "0.3.26"
 
 [[example]]
 name = "embedding_generator"

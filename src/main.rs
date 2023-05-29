@@ -1,46 +1,73 @@
-use std::path::PathBuf;
-use tch::{jit, Device, Tensor};
-use tokenizers::tokenizer::{Result, Tokenizer};
+use clap::{ArgAction, Parser};
+use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
+use std::path::{Path, PathBuf};
 
-// fn main() {
-//     let path = "example_directory";
-//     let collection_path = PathBuf::from(path);
-//     let fields: Vec<&str> = vec!["text", "title"];
-//     let delimiter = "\t";
-//     let mut iterator = JsonlCollectionIterator::new(path, Some(fields), delimiter);
-//     iterator.load(&collection_path);
-//     println!("{:?}", iterator.size);
-//     println!("{:?}", iterator.iter().next());
-//     println!("{:?}", iterator.iter().next());
-//     println!("{:?}", iterator.iter().next());
-// }
+/// Simple program to greet a person
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Directory that contains corpus files to be encoded, in jsonl format.
+    #[arg(short, long)]
+    corpus: String,
 
-fn main() -> Result<()> {
-    let device = Device::cuda_if_available();
-    let model_file = PathBuf::from("traced_bert.pt");
-    let tokenizer = Tokenizer::from_pretrained("bert-base-uncased", None)?;
+    /// Fields that contents in jsonl has (in order) separated by comma.
+    #[arg(short, long, default_value = "text")]
+    fields: String,
 
-    let encoding = tokenizer.encode(
-        "[CLS] Who was Jim Henson ? [SEP] Jim Henson was a puppeteer [SEP]",
-        false,
-    )?;
-    // println!("{:?}", encoding.get_ids());
+    /// delimiter for the fields
+    #[arg(short, long, default_value = "\n")]
+    delimiter: String,
 
-    let token_ids = encoding.get_ids();
-    let i32_vec: Vec<i32> = token_ids.iter().map(|&x| x as i32).collect();
+    /// shard-id 0-based
+    #[arg(short, long, default_value_t = 0)]
+    shard_id: u8,
 
-    let tokens_masks = encoding.get_attention_mask();
-    let i32_mask: Vec<i32> = tokens_masks.iter().map(|&x| x as i32).collect();
-    let input_mask = Tensor::of_slice(&i32_mask).unsqueeze(0).to(device);
+    /// number of shards
+    #[arg(long, default_value_t = 1)]
+    shard_num: u8,
 
-    let input = Tensor::of_slice(&i32_vec).unsqueeze(0).to(device);
+    /// directory to store encoded corpus
+    #[arg(short, long, required = true)]
+    embeddings_dir: String,
 
-    // // Load the Python saved module.
-    let model = jit::CModule::load(model_file).unwrap();
+    /// Whether to store the embeddings in a faiss index or in a jsonl file
+    #[arg(long, action=ArgAction::SetFalse)]
+    to_faiss: bool,
 
-    let output = model.forward_ts(&[input, input_mask]).unwrap();
-    let result_vector = Vec::<f32>::from(output);
+    /// Encoder name or path
+    #[arg(long)]
+    encoder: String,
 
-    dbg!(result_vector);
-    Ok(())
+    /// Batch size for encoding
+    #[arg(short, long, default_value_t = 32)]
+    batch_size: usize,
+
+    /// GPU Device ==> cpu or cuda:0
+    #[arg(long, default_value = "cpu")]
+    device: String,
+
+    /// Whether to use fp16
+    #[arg(long, action=ArgAction::SetTrue)]
+    fp16: bool,
+
+    /// max length of the input
+    #[arg(short, long, default_value_t = 512)]
+    max_length: u16,
+
+    /// Embedding dimension
+    #[arg(long, default_value_t = 768)]
+    embedding_dim: u16,
+}
+
+fn main() {
+    let args = Args::parse();
+
+    let fields = args.fields.split(",").collect::<Vec<&str>>();
+
+    let mut iterator = JsonlCollectionIterator::new(
+        &args.corpus,
+        Some(fields),
+        &args.delimiter,
+        &args.batch_size,
+    );
 }

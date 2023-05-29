@@ -71,9 +71,20 @@ mod tests {
 
     #[test]
     fn test_jsonl_collection_iterator() {
-        let path = "example_directory";
+        let path = "tests/test_files";
         let fields: Vec<&str> = vec!["docid", "text", "title"];
         let delimiter = "\t";
-        let mut iterator = JsonlCollectionIterator::new(path, Some(fields), delimiter);
+        let batch_size = 2;
+        let mut iterator =
+            JsonlCollectionIterator::new(&path, Some(fields), delimiter, &batch_size);
+
+        iterator.load();
+        assert_eq!(iterator.size, 10);
+        assert_eq!(iterator.all_info["docid"].as_array().unwrap().len(), 10);
+
+        assert_eq!(
+            iterator.iter().next().unwrap()["title"][0],
+            String::from("\"Introduction\"")
+        );
     }
 }

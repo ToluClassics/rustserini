@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub struct JsonlRepresentationWriter {
     dir_path: PathBuf,
@@ -18,9 +18,10 @@ pub struct JsonlCollectionIterator<'a> {
     delimiter: &'a str,
     pub all_info: HashMap<&'a str, Value>,
     pub size: usize,
-    batch_size: usize,
+    batch_size: &'a usize,
     shard_id: usize,
     shard_num: usize,
+    collection_path: &'a str,
 }
 
 impl RepresentationWriter for JsonlRepresentationWriter {
@@ -83,6 +84,7 @@ impl<'a> JsonlCollectionIterator<'a> {
         _collection_path: &'a str,
         fields: Option<Vec<&'a str>>,
         delimiter: &'a str,
+        batch_size: &'a usize,
     ) -> Self {
         let fields = match fields {
             Some(f) => f,
@@ -96,19 +98,23 @@ impl<'a> JsonlCollectionIterator<'a> {
             delimiter,
             all_info,
             size,
-            batch_size: 32,
+            batch_size,
             shard_id: 0,
             shard_num: 1,
+            collection_path: _collection_path,
         }
     }
 
-    pub fn load(&mut self, collection_path: &PathBuf) {
+    pub fn load(&mut self) {
         let mut filenames = Vec::new();
+        let collection_path = Path::new(&self.collection_path);
+
         if collection_path.is_file() {
-            filenames.push(collection_path.clone());
+            filenames.push(collection_path.to_path_buf());
         } else {
             for filename in std::fs::read_dir(collection_path).unwrap() {
                 let filename = filename.unwrap().path();
+
                 if filename.is_file() {
                     filenames.push(filename);
                 }
@@ -180,7 +186,7 @@ impl<'a> JsonlCollectionIterator<'a> {
         let mut to_yield = HashMap::new();
 
         (start_idx..end_idx)
-            .step_by(self.batch_size)
+            .step_by(*self.batch_size)
             .map(move |idx| {
                 for (key, value) in self.all_info.clone() {
                     to_yield.insert(
@@ -195,6 +201,8 @@ impl<'a> JsonlCollectionIterator<'a> {
     }
 
     fn parse_fields_from_info(&self, info: &serde_json::Value) -> Result<Vec<String>, String> {
+        /// Parse fields from info
+        ///
         let n_fields = self.fields.len();
 
         if self.fields.iter().all(|&field| info.get(field).is_some()) {
