@@ -1,6 +1,9 @@
 use clap::{ArgAction, Parser};
+use rustserini::encode::auto::AutoDocumentEncoder;
+use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
 use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
-use std::path::{Path, PathBuf};
+use serde_json::{Number, Value};
+use std::collections::HashMap;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -38,6 +41,10 @@ struct Args {
     #[arg(long)]
     encoder: String,
 
+    /// Tokenizer name or path
+    #[arg(long)]
+    tokenizer: String,
+
     /// Batch size for encoding
     #[arg(short, long, default_value_t = 32)]
     batch_size: usize,
@@ -70,4 +77,78 @@ fn main() {
         &args.delimiter,
         &args.batch_size,
     );
+    iterator.load();
+
+    let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir);
+    writer.open_file();
+
+    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer));
+
+    for batch in iterator.iter() {
+        let mut batch_info = HashMap::new();
+
+        let batch_text: Vec<String> = batch["text"]
+            .iter()
+            .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
+            .collect();
+
+        let batch_title: Vec<String> = batch["title"]
+            .iter()
+            .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
+            .collect();
+
+        let batch_id: Vec<String> = batch["id"]
+            .iter()
+            .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
+            .collect();
+
+        let kwargs: HashMap<&str, &str> = HashMap::new();
+
+        let embeddings = &encoder.encode(&batch_text, &batch_title, kwargs);
+        let embeddings: Vec<Value> = embeddings
+            .iter()
+            .map(|x| Value::Number(Number::from_f64(*x as f64).unwrap()))
+            .collect();
+
+        let embeddings_value: Vec<_> = embeddings.chunks(args.embedding_dim as usize).collect();
+
+        let embeddings: Vec<Value> = embeddings_value
+            .iter()
+            .map(|x| Value::Array(x.to_vec()))
+            .collect();
+
+        batch_info.insert(
+            "text",
+            Value::Array(
+                batch_text
+                    .iter()
+                    .map(|x| Value::String(x.to_string()))
+                    .collect(),
+            ),
+        );
+
+        batch_info.insert(
+            "title",
+            Value::Array(
+                batch_title
+                    .iter()
+                    .map(|x| Value::String(x.to_string()))
+                    .collect(),
+            ),
+        );
+
+        batch_info.insert(
+            "id",
+            Value::Array(
+                batch_id
+                    .iter()
+                    .map(|x| Value::String(x.to_string()))
+                    .collect(),
+            ),
+        );
+
+        batch_info.insert("vector", Value::Array(embeddings));
+
+        let _ = &writer.write(&batch_info);
+    }
 }

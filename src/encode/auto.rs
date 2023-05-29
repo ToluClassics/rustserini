@@ -106,8 +106,7 @@ impl DocumentEncoder for AutoDocumentEncoder {
                 .unwrap()
         })
         .pooled_output
-        .unwrap()
-        .get(0);
+        .unwrap();
 
         let embeddings: Vec<f32> = Vec::from(output);
         return embeddings;
