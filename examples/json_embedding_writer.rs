@@ -6,6 +6,10 @@ use serde_json::{Number, Value};
 use std::collections::HashMap;
 
 /// Simple program to encode a corpus and store the embeddings in a jsonl file
+/// Download the msmarco passage dataset using the below command:
+/// mkdir corpus/msmarco-passage
+/// wget  https://huggingface.co/datasets/Tevatron/msmarco-passage-corpus/resolve/main/corpus.jsonl.gz -P corpus/msmarco-passage
+/// cargo run --example json_embedding_writer --  --corpus corpus/msmarco-passage/corpus.jsonl.gz  --embeddings-dir corpus/msmarco-passage --encoder bert-base-uncased --tokenizer bert-base-uncased
 ///
 ///
 ///
