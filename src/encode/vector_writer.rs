@@ -1,4 +1,7 @@
 use crate::encode::base::RepresentationWriter;
+use faiss::index::io::write_index;
+use faiss::index::IndexImpl;
+use faiss::{index_factory, Index, MetricType};
 use flate2::read::GzDecoder;
 use kdam::tqdm;
 use serde_json::{json, Value};
@@ -24,9 +27,17 @@ pub struct JsonlCollectionIterator<'a> {
     collection_path: &'a str,
 }
 
+pub struct FaissRepresentationWriter {
+    pub dir_path: Option<PathBuf>,
+    index_name: String,
+    id_file_name: String,
+    pub dimension: u32,
+    pub index: IndexImpl,
+}
+
 impl RepresentationWriter for JsonlRepresentationWriter {
     // Write a representation to a file
-    fn write(self: &JsonlRepresentationWriter, batch_info: &HashMap<&str, Value>) {
+    fn write(&mut self, batch_info: &HashMap<&str, Value>) {
         let mut file = match &self.file {
             Some(file) => file,
             None => {
@@ -72,6 +83,14 @@ impl RepresentationWriter for JsonlRepresentationWriter {
         let file_path = self.dir_path.join(&self.filename);
         let file = std::fs::File::create(file_path).unwrap();
         self.file = Some(file);
+    }
+
+    fn save_index(&mut self) {
+        panic!("Not implemented!");
+    }
+
+    fn init_index(&mut self, _dim: u32, _index_type: &str) {
+        panic!("Not implemented!");
     }
 }
 
@@ -232,5 +251,85 @@ impl<'a> JsonlCollectionIterator<'a> {
             .collect();
 
         Ok(fields_info)
+    }
+}
+
+impl Default for FaissRepresentationWriter {
+    fn default() -> Self {
+        Self {
+            dir_path: None,
+            index_name: String::from("index"),
+            id_file_name: String::from("docid"),
+            dimension: 768,
+            index: index_factory(768, "Flat", MetricType::InnerProduct).unwrap(),
+        }
+    }
+}
+
+impl RepresentationWriter for FaissRepresentationWriter {
+    // Create a new instance of a RepresentationWriter
+    fn new(path: &str) -> Self {
+        let _tmp = FaissRepresentationWriter::default();
+        let dir_path = PathBuf::from(path);
+        let index = index_factory(_tmp.dimension, "Flat", MetricType::InnerProduct).unwrap();
+
+        if !dir_path.exists() {
+            std::fs::create_dir_all(&dir_path).unwrap();
+        }
+
+        Self {
+            dir_path: Some(dir_path),
+            index_name: _tmp.index_name,
+            id_file_name: _tmp.id_file_name,
+            dimension: _tmp.dimension,
+            index,
+        }
+    }
+
+    fn init_index(&mut self, dim: u32, index_type: &str) {
+        self.dimension = dim;
+        self.index = index_factory(dim, index_type, MetricType::InnerProduct).unwrap();
+    }
+
+    fn write(&mut self, batch_info: &HashMap<&str, Value>) {
+        let batch_id: Vec<Value> = match batch_info["id"] {
+            Value::Array(ref batch_id) => batch_id.clone(),
+            _ => panic!("Invalid batch id type!"),
+        };
+
+        let id_file_path = self.dir_path.as_ref().unwrap().join(&self.id_file_name);
+        // let index_file_path = self.dir_path.as_ref().unwrap().join(&self.index_name);
+
+        let mut id_file = std::fs::File::create(id_file_path).unwrap();
+
+        let mut all_vectors: Vec<f32> = Vec::new();
+
+        for i in 0..batch_id.len() {
+            let vec = match batch_info["vector"][i] {
+                Value::Array(ref _vec) => &batch_info["vector"][i],
+                _ => panic!("Invalid batch vector type!"),
+            };
+
+            let vec: Vec<f32> = vec
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_f64().unwrap() as f32)
+                .collect();
+
+            all_vectors.extend(vec);
+
+            writeln!(id_file, "{}", batch_info["id"][i]).unwrap();
+        }
+        self.index.add(&all_vectors).unwrap();
+    }
+
+    fn open_file(&mut self) {
+        panic!("Not implemented!");
+    }
+
+    fn save_index(&mut self) {
+        let index_file_path: PathBuf = self.dir_path.as_ref().unwrap().join(&self.index_name);
+        write_index(&self.index, index_file_path.as_path().display().to_string()).unwrap();
     }
 }
