@@ -22,11 +22,15 @@ pub trait QueryEncoder {
 
 pub trait RepresentationWriter {
     // Write a representation to a file
-    fn write(&self, batch_info: &HashMap<&str, Value>);
+    fn write(&mut self, batch_info: &HashMap<&str, Value>);
 
     // Create a new instance of a RepresentationWriter
     fn new(path: &str) -> Self;
 
     // Open File
     fn open_file(&mut self);
+
+    fn save_index(&mut self);
+
+    fn init_index(&mut self, dim: u32, index_type: &str);
 }

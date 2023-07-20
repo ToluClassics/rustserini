@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use faiss::Index;
     use rustserini::encode::auto::AutoDocumentEncoder;
     use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
+    use rustserini::encode::vector_writer::FaissRepresentationWriter;
     use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
     use serde_json::{Number, Value};
     use std::collections::HashMap;
@@ -20,7 +22,7 @@ mod tests {
         let titles = vec!["Title 1".to_string(), "Title 2".to_string()];
         let kwargs = HashMap::new();
         let embeddings = document_encoder.encode(&texts, &titles, kwargs);
-        assert_eq!(embeddings.len(), 768);
+        assert_eq!(embeddings.len(), 1536);
     }
 
     #[test]
@@ -32,8 +34,8 @@ mod tests {
         batch_info.insert(
             "id",
             Value::Array(vec![
-                Value::String("0".to_string()),
-                Value::String("1".to_string()),
+                Value::String(0.to_string()),
+                Value::String(1.to_string()),
             ]),
         );
         batch_info.insert(
@@ -65,8 +67,59 @@ mod tests {
                 ]),
             ]),
         );
-        let fields = vec![&"text".to_string(), &"title".to_string()];
+        // let fields = vec![&"text".to_string(), &"title".to_string()];
         writer.write(&batch_info);
+    }
+
+    #[test]
+    fn test_faiss_representation_writer() {
+        let path = "test";
+        let mut writer = FaissRepresentationWriter::new(path);
+        writer.init_index(3, "Flat");
+
+        let mut batch_info = HashMap::new();
+        batch_info.insert(
+            "id",
+            Value::Array(vec![
+                Value::String(0.to_string()),
+                Value::String(1.to_string()),
+            ]),
+        );
+        batch_info.insert(
+            "text",
+            Value::Array(vec![
+                Value::String("Hello, I am a sentence!".to_string()),
+                Value::String("Hello, I am a sentences!".to_string()),
+            ]),
+        );
+        batch_info.insert(
+            "title",
+            Value::Array(vec![
+                Value::String("Hello, I am a sentence!".to_string()),
+                Value::String("Hello, I am a sentences!".to_string()),
+            ]),
+        );
+        batch_info.insert(
+            "vector",
+            Value::Array(vec![
+                Value::Array(vec![
+                    Value::Number(Number::from_f64(0.1).unwrap()),
+                    Value::Number(Number::from_f64(0.2).unwrap()),
+                    Value::Number(Number::from_f64(0.3).unwrap()),
+                ]),
+                Value::Array(vec![
+                    Value::Number(Number::from_f64(0.1).unwrap()),
+                    Value::Number(Number::from_f64(0.2).unwrap()),
+                    Value::Number(Number::from_f64(0.3).unwrap()),
+                ]),
+            ]),
+        );
+        writer.write(&batch_info);
+
+        writer.save_index();
+
+        assert_eq!(writer.index.is_trained(), true);
+        assert_eq!(writer.index.ntotal(), 2);
     }
 
     #[test]
