@@ -28,11 +28,12 @@ pub struct JsonlCollectionIterator<'a> {
 }
 
 pub struct FaissRepresentationWriter {
-    pub dir_path: Option<PathBuf>,
+    pub dir_path: PathBuf,
     index_name: String,
-    id_file_name: String,
+    file_name: String,
     pub dimension: u32,
     pub index: IndexImpl,
+    file: Option<std::fs::File>,
 }
 
 impl RepresentationWriter for JsonlRepresentationWriter {
@@ -257,11 +258,12 @@ impl<'a> JsonlCollectionIterator<'a> {
 impl Default for FaissRepresentationWriter {
     fn default() -> Self {
         Self {
-            dir_path: None,
+            dir_path: PathBuf::from("corpus"),
             index_name: String::from("index"),
-            id_file_name: String::from("docid"),
+            file_name: String::from("docid"),
             dimension: 768,
             index: index_factory(768, "Flat", MetricType::InnerProduct).unwrap(),
+            file: None,
         }
     }
 }
@@ -272,17 +274,19 @@ impl RepresentationWriter for FaissRepresentationWriter {
         let _tmp = FaissRepresentationWriter::default();
         let dir_path = PathBuf::from(path);
         let index = index_factory(_tmp.dimension, "Flat", MetricType::InnerProduct).unwrap();
+        let file = None;
 
         if !dir_path.exists() {
             std::fs::create_dir_all(&dir_path).unwrap();
         }
 
         Self {
-            dir_path: Some(dir_path),
+            dir_path: dir_path,
             index_name: _tmp.index_name,
-            id_file_name: _tmp.id_file_name,
+            file_name: _tmp.file_name,
             dimension: _tmp.dimension,
             index,
+            file,
         }
     }
 
@@ -292,15 +296,17 @@ impl RepresentationWriter for FaissRepresentationWriter {
     }
 
     fn write(&mut self, batch_info: &HashMap<&str, Value>) {
+        let mut file = match &self.file {
+            Some(file) => file,
+            None => {
+                panic!("File is not open for writing!");
+            }
+        };
+
         let batch_id: Vec<Value> = match batch_info["id"] {
             Value::Array(ref batch_id) => batch_id.clone(),
             _ => panic!("Invalid batch id type!"),
         };
-
-        let id_file_path = self.dir_path.as_ref().unwrap().join(&self.id_file_name);
-        // let index_file_path = self.dir_path.as_ref().unwrap().join(&self.index_name);
-
-        let mut id_file = std::fs::File::create(id_file_path).unwrap();
 
         let mut all_vectors: Vec<f32> = Vec::new();
 
@@ -319,17 +325,24 @@ impl RepresentationWriter for FaissRepresentationWriter {
 
             all_vectors.extend(vec);
 
-            writeln!(id_file, "{}", batch_info["id"][i]).unwrap();
+            writeln!(file, "{}", batch_info["id"][i]).unwrap();
         }
         self.index.add(&all_vectors).unwrap();
     }
 
+    // Open File
     fn open_file(&mut self) {
-        panic!("Not implemented!");
+        if !self.dir_path.exists() {
+            std::fs::create_dir_all(&self.dir_path).unwrap();
+        }
+
+        let file_path = self.dir_path.join(&self.file_name);
+        let file = std::fs::File::create(file_path).unwrap();
+        self.file = Some(file);
     }
 
     fn save_index(&mut self) {
-        let index_file_path: PathBuf = self.dir_path.as_ref().unwrap().join(&self.index_name);
+        let index_file_path: PathBuf = self.dir_path.join(&self.index_name);
         write_index(&self.index, index_file_path.as_path().display().to_string()).unwrap();
     }
 }

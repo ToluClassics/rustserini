@@ -6,12 +6,27 @@ use rust_bert::bert::{
 use rust_bert::resources::{RemoteResource, ResourceProvider};
 use rust_bert::Config;
 use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
-use std::collections::HashMap;
-use tch::{nn, no_grad, Device, Tensor};
+use tch::{nn, no_grad, Device, Kind, Tensor};
 
 pub struct AutoDocumentEncoder {
     model: BertForSentenceEmbeddings,
     tokenizer: BertTokenizer,
+}
+
+fn mean_pooling(last_hidden_state: Tensor, attention_mask: Tensor) -> Tensor {
+    let mut output_vectors = Vec::new();
+    let input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(&last_hidden_state);
+    let sum_embeddings = (last_hidden_state * &input_mask_expanded).sum_dim_intlist(
+        [1].as_slice(),
+        false,
+        Kind::Float,
+    );
+    let sum_mask = input_mask_expanded.sum_dim_intlist([1].as_slice(), false, Kind::Float);
+    let sum_mask = sum_mask.clamp_min(1e-9);
+
+    output_vectors.push(&sum_embeddings / &sum_mask);
+
+    Tensor::cat(&output_vectors, 1)
 }
 
 impl DocumentEncoder for AutoDocumentEncoder {
@@ -35,12 +50,7 @@ impl DocumentEncoder for AutoDocumentEncoder {
         Self { model, tokenizer }
     }
 
-    fn encode(
-        &self,
-        texts: &Vec<String>,
-        titles: &Vec<String>,
-        _kwargs: HashMap<&str, &str>,
-    ) -> Vec<f32> {
+    fn encode(&self, texts: &Vec<String>, titles: &Vec<String>, pooler_type: &str) -> Vec<f32> {
         let texts = if !titles.is_empty() {
             texts
                 .iter()
@@ -90,23 +100,46 @@ impl DocumentEncoder for AutoDocumentEncoder {
 
         let tokens_ids = Tensor::stack(&tokens_ids, 0);
         let tokens_masks = Tensor::stack(&tokens_masks, 0);
+        let output: Tensor;
 
-        let output = no_grad(|| {
-            self.model
-                .forward_t(
-                    Some(&tokens_ids),
-                    Some(&tokens_masks),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    false,
-                )
-                .unwrap()
-        })
-        .pooled_output
-        .unwrap();
+        if pooler_type == "mean" {
+            let hidden_state: Tensor = no_grad(|| {
+                self.model
+                    .forward_t(
+                        Some(&tokens_ids),
+                        Some(&tokens_masks),
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                    )
+                    .unwrap()
+            })
+            .hidden_state;
+
+            output = mean_pooling(hidden_state, tokens_masks);
+        } else if pooler_type == "cls" {
+            output = no_grad(|| {
+                self.model
+                    .forward_t(
+                        Some(&tokens_ids),
+                        Some(&tokens_masks),
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        false,
+                    )
+                    .unwrap()
+            })
+            .hidden_state
+            .select(1, 0);
+        } else {
+            panic!("pooler_type must be either mean or cls");
+        }
 
         let embeddings: Vec<f32> = Vec::from(output);
         return embeddings;

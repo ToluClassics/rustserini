@@ -7,17 +7,12 @@ pub trait DocumentEncoder {
     fn new(model_name: &str, tokenizer_name: Option<&str>) -> Self;
 
     // Encode a document or a set of documents into a vector of floats
-    fn encode(
-        &self,
-        texts: &Vec<String>,
-        titles: &Vec<String>,
-        kwargs: HashMap<&str, &str>,
-    ) -> Vec<f32>;
+    fn encode(&self, texts: &Vec<String>, titles: &Vec<String>, pooler_type: &str) -> Vec<f32>;
 }
 
 pub trait QueryEncoder {
     // Encode a query into a vector of floats
-    fn encode(&self, query: &str, kwargs: HashMap<&str, &str>) -> Vec<f64>;
+    fn encode(&self, query: &str) -> Vec<f64>;
 }
 
 pub trait RepresentationWriter {

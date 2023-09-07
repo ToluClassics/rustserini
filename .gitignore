@@ -19,3 +19,4 @@ test/
 *.pt
 .DS_Store
 corpus/
+venv/
