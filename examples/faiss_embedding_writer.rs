@@ -83,7 +83,7 @@ fn main() {
     writer.init_index(768, "Flat");
     writer.open_file();
 
-    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer));
+    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer), true, true);
 
     for batch in iterator.iter() {
         let mut batch_info = HashMap::new();

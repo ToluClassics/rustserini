@@ -38,6 +38,7 @@ class AutoDocumentEncoder(DocumentEncoder):
                 input_kwargs["text"] = texts
 
         inputs = self.tokenizer(**input_kwargs, **shared_tokenizer_kwargs)
+        print(inputs)
         inputs.to(self.device)
         outputs = self.model(**inputs)
         if self.pooling == "mean":
@@ -49,8 +50,7 @@ class AutoDocumentEncoder(DocumentEncoder):
 
 
 if __name__ == '__main__':
-    encoder = AutoDocumentEncoder(model_name='bert-base-uncased', device='cpu')
-    queries = ['Title 1 Hello, I am a sentence!', 'Title 2 And another sentence.']
+    encoder = AutoDocumentEncoder(model_name='castorini/mdpr-tied-pft-msmarco', device='cpu')
+    queries = ['Title 2 And another sentence.']
     query_embeddings = encoder.encode(queries, max_length=128)
-    print(query_embeddings[0][:10])
     print(query_embeddings[0][:10])

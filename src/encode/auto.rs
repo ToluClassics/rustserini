@@ -1,16 +1,66 @@
 use crate::encode::base::DocumentEncoder;
-use rust_bert::bert::{
-    BertConfig, BertConfigResources, BertForSentenceEmbeddings, BertModelResources,
-    BertVocabResources,
-};
+use rust_bert::bert::{BertConfig, BertForSentenceEmbeddings};
 use rust_bert::resources::{RemoteResource, ResourceProvider};
 use rust_bert::Config;
 use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
 use tch::{nn, no_grad, Device, Kind, Tensor};
 
+const BERT_MODELS: [&str; 3] = ["bert-base-uncased", "bert-base-cased", "bert-large-uncased"];
+
 pub struct AutoDocumentEncoder {
     model: BertForSentenceEmbeddings,
     tokenizer: BertTokenizer,
+}
+
+fn fetch_bert_style_config(model_name: &str) -> BertConfig {
+    let remote_config_path = format!(
+        "https://huggingface.co/{model_name}/resolve/main/config.json",
+        model_name = model_name
+    );
+    let alias = format!("{model_name}/model", model_name = model_name);
+    let config_tuple = (alias.as_str(), remote_config_path.as_str());
+    let config_resource = RemoteResource::from_pretrained(config_tuple);
+    let config_path = config_resource.get_local_path().unwrap();
+    let config = BertConfig::from_file(config_path);
+    config
+}
+
+fn fetch_bert_style_vocab(model_name: &str, lowercase: bool, strip_accents: bool) -> BertTokenizer {
+    let remote_vocab_path = format!(
+        "https://huggingface.co/{model_name}/resolve/main/vocab.txt",
+        model_name = model_name
+    );
+    let alias = format!("{model_name}/model", model_name = model_name);
+    let vocab_tuple = (alias.as_str(), remote_vocab_path.as_str());
+    let vocab_resource = RemoteResource::from_pretrained(vocab_tuple);
+    let vocab_path = vocab_resource.get_local_path().unwrap();
+
+    let vocab = BertTokenizer::from_file(vocab_path.to_str().unwrap(), lowercase, strip_accents)
+        .expect("Couldn't build tokenizer");
+    vocab
+}
+
+fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSentenceEmbeddings {
+    let remote_model_path = format!(
+        "https://huggingface.co/{model_name}/resolve/main/rust_model.ot",
+        model_name = &model_name
+    );
+    let alias = format!("{model_name}/model", model_name = model_name);
+    let model_tuple = (alias.as_str(), remote_model_path.as_str());
+    let model_resource = RemoteResource::from_pretrained(model_tuple);
+    let model_path = model_resource.get_local_path().unwrap();
+    let device = Device::cuda_if_available();
+    let mut vs = nn::VarStore::new(device);
+    let model: BertForSentenceEmbeddings;
+
+    if BERT_MODELS.contains(&model_name) {
+        model = BertForSentenceEmbeddings::new(&vs.root() / "bert", &config);
+    } else {
+        model = BertForSentenceEmbeddings::new(&vs.root(), &config);
+    }
+    vs.load(model_path).expect("Couldn't load model weights");
+
+    model
 }
 
 fn mean_pooling(last_hidden_state: Tensor, attention_mask: Tensor) -> Tensor {
@@ -31,22 +81,17 @@ fn mean_pooling(last_hidden_state: Tensor, attention_mask: Tensor) -> Tensor {
 
 impl DocumentEncoder for AutoDocumentEncoder {
     // instantiating a new AutoDocumentEncoder instance
-    fn new(_model_name: &str, _tokenizer_name: Option<&str>) -> AutoDocumentEncoder {
-        let device = Device::cuda_if_available();
-        let mut vs = nn::VarStore::new(device);
-        let model_config_resource = RemoteResource::from_pretrained(BertConfigResources::BERT);
-        let config = BertConfig::from_file(model_config_resource.get_local_path().unwrap());
-        let model_resource = RemoteResource::from_pretrained(BertModelResources::BERT);
-        let model_path = model_resource.get_local_path().unwrap();
-        let model = BertForSentenceEmbeddings::new(&vs.root() / "bert", &config);
+    fn new(
+        model_name: &str,
+        _tokenizer_name: Option<&str>,
+        lowercase: bool,
+        strip_accents: bool,
+    ) -> AutoDocumentEncoder {
+        let _device = Device::cuda_if_available();
+        let config = fetch_bert_style_config(&model_name);
+        let model = fetch_bert_style_model(&model_name, config);
 
-        vs.load(model_path).expect("Couldn't load model weights");
-
-        let tokenizer_resource = RemoteResource::from_pretrained(BertVocabResources::BERT);
-        let tokenizer_path = tokenizer_resource.get_local_path().unwrap();
-        let tokenizer = BertTokenizer::from_file(tokenizer_path.to_str().unwrap(), true, true)
-            .expect("Couldn't build tokenizer");
-
+        let tokenizer = fetch_bert_style_vocab(&model_name, lowercase, strip_accents);
         Self { model, tokenizer }
     }
 
@@ -65,11 +110,7 @@ impl DocumentEncoder for AutoDocumentEncoder {
             self.tokenizer
                 .encode_list(&texts, 128, &TruncationStrategy::LongestFirst, 0);
 
-        let max_len = tokenized_input
-            .iter()
-            .map(|input| input.token_ids.len())
-            .max()
-            .unwrap_or(0);
+        let max_len = 128;
 
         let pad_token_id = 0;
         let tokens_ids = tokenized_input

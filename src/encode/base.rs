@@ -4,7 +4,12 @@ use std::collections::HashMap;
 
 pub trait DocumentEncoder {
     // instantiating a new DocumentEncoder instance
-    fn new(model_name: &str, tokenizer_name: Option<&str>) -> Self;
+    fn new(
+        model_name: &str,
+        tokenizer_name: Option<&str>,
+        lowercase: bool,
+        strip_accents: bool,
+    ) -> Self;
 
     // Encode a document or a set of documents into a vector of floats
     fn encode(&self, texts: &Vec<String>, titles: &Vec<String>, pooler_type: &str) -> Vec<f32>;

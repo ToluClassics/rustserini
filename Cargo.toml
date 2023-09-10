@@ -17,6 +17,7 @@ tokenizers = "0.13.3"
 clap = "4.2.7"
 structopt = "0.3.26"
 "faiss" = "0.12.0"
+anyhow = "1.0"
 
 [[example]]
 name = "json_embedding_writer"
@@ -26,3 +27,6 @@ name = "faiss_embedding_writer"
 
 [[example]]
 name = "struct_loop"
+
+[[example]]
+name = "load_model"

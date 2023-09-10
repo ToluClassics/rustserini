@@ -82,7 +82,7 @@ fn main() {
     let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir);
     writer.open_file();
 
-    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer));
+    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer), true, true);
 
     for batch in iterator.iter() {
         let mut batch_info = HashMap::new();
