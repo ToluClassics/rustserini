@@ -26,7 +26,4 @@ name = "json_embedding_writer"
 name = "faiss_embedding_writer"
 
 [[example]]
-name = "struct_loop"
-
-[[example]]
-name = "load_model"
+name = "load_mdpr_model_local"

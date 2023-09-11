@@ -5,7 +5,12 @@ use rustserini::encode::vector_writer::{FaissRepresentationWriter, JsonlCollecti
 use serde_json::{Number, Value};
 use std::collections::HashMap;
 
-/// Simple program to greet a person
+/// A Rust example of encoding a corpus and store the embeddings in a FAISS Index
+/// Download the msmarco passage dataset using the below command:
+/// mkdir corpus/msmarco-passage
+/// wget  https://huggingface.co/datasets/Tevatron/msmarco-passage-corpus/resolve/main/corpus.jsonl.gz -P corpus/msmarco-passage
+/// cargo run --example json_embedding_writer --  --corpus corpus/msmarco-passage/corpus.jsonl.gz  --embeddings-dir corpus/msmarco-passage --encoder bert-base-uncased --tokenizer bert-base-uncased
+///
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {

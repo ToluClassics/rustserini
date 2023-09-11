@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let vocab_path = vocab_resource.get_local_path().unwrap();
     let weights_path = weights_resource.get_local_path().unwrap();
 
-    let vocab = BertVocab::from_file(&vocab_path).unwrap();
+    let vocab = BertVocab::from_file(&vocab_path)?;
     let bert_tokenizer: BertTokenizer =
         BertTokenizer::from_existing_vocab(vocab, lower_case, strip_accents);
 

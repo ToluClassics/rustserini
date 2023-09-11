@@ -7,6 +7,7 @@ use tch::{nn, no_grad, Device, Kind, Tensor};
 
 const BERT_MODELS: [&str; 3] = ["bert-base-uncased", "bert-base-cased", "bert-large-uncased"];
 
+/// An AutoDocumentEncoder for encoding documents with BERT-style  encoding models
 pub struct AutoDocumentEncoder {
     model: BertForSentenceEmbeddings,
     tokenizer: BertTokenizer,

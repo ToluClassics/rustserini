@@ -10,12 +10,18 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
+/// JsonlRepresentationWriter is a struct that writes for writing embeddings to a jsonl file
+/// It is designed to be a parallel of this Python Class
+/// https://github.com/castorini/pyserini/blob/45edec7e618db621339958c89fdff1d4a7a8cb90/pyserini/encode/_base.py#L162
 pub struct JsonlRepresentationWriter {
     dir_path: PathBuf,
     filename: String,
     file: Option<std::fs::File>,
 }
 
+/// JsonlCollectionIterator is a struct created for iterating over the items in a jsonl file
+/// It is designed to be a parallel of this Python Class
+/// https://github.com/castorini/pyserini/blob/45edec7e618db621339958c89fdff1d4a7a8cb90/pyserini/encode/_base.py#L59
 pub struct JsonlCollectionIterator<'a> {
     fields: Vec<&'a str>,
     delimiter: &'a str,
@@ -27,6 +33,7 @@ pub struct JsonlCollectionIterator<'a> {
     collection_path: &'a str,
 }
 
+/// FaissRepresentationWriter is a struct that writes for writing embeddings to a faiss index
 pub struct FaissRepresentationWriter {
     pub dir_path: PathBuf,
     index_name: String,
