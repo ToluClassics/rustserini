@@ -5,7 +5,12 @@ use rustserini::encode::vector_writer::{FaissRepresentationWriter, JsonlCollecti
 use serde_json::{Number, Value};
 use std::collections::HashMap;
 
-/// Simple program to greet a person
+/// A Rust example of encoding a corpus and store the embeddings in a FAISS Index
+/// Download the msmarco passage dataset using the below command:
+/// mkdir corpus/msmarco-passage
+/// wget  https://huggingface.co/datasets/Tevatron/msmarco-passage-corpus/resolve/main/corpus.jsonl.gz -P corpus/msmarco-passage
+/// cargo run --example json_embedding_writer --  --corpus corpus/msmarco-passage/corpus.jsonl.gz  --embeddings-dir corpus/msmarco-passage --encoder bert-base-uncased --tokenizer bert-base-uncased
+///
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
@@ -14,7 +19,7 @@ struct Args {
     corpus: String,
 
     /// Fields that contents in jsonl has (in order) separated by comma.
-    #[arg(short, long, default_value = "text")]
+    #[arg(short, long, default_value = "text,title")]
     fields: String,
 
     /// delimiter for the fields
@@ -46,7 +51,7 @@ struct Args {
     tokenizer: String,
 
     /// Batch size for encoding
-    #[arg(short, long, default_value_t = 32)]
+    #[arg(short, long, default_value_t = 8)]
     batch_size: usize,
 
     /// GPU Device ==> cpu or cuda:0
@@ -81,8 +86,9 @@ fn main() {
 
     let mut writer = FaissRepresentationWriter::new(&args.embeddings_dir);
     writer.init_index(768, "Flat");
+    writer.open_file();
 
-    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer));
+    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer), true, true);
 
     for batch in iterator.iter() {
         let mut batch_info = HashMap::new();
@@ -102,9 +108,7 @@ fn main() {
             .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
             .collect();
 
-        let kwargs: HashMap<&str, &str> = HashMap::new();
-
-        let embeddings = &encoder.encode(&batch_text, &batch_title, kwargs);
+        let embeddings = &encoder.encode(&batch_text, &batch_title, "cls");
         let embeddings: Vec<Value> = embeddings
             .iter()
             .map(|x| Value::Number(Number::from_f64(*x as f64).unwrap()))

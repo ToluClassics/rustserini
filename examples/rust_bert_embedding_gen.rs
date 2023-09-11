@@ -7,6 +7,8 @@ use rust_bert::Config;
 use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
 use tch::{nn, no_grad, Device, Tensor};
 
+// A Rust BERT example file to load bert-base-uncased model and encode a simple sentence
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config_resource = RemoteResource::from_pretrained(BertConfigResources::BERT);
     let vocab_resource = RemoteResource::from_pretrained(BertVocabResources::BERT);

@@ -82,7 +82,7 @@ fn main() {
     let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir);
     writer.open_file();
 
-    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer));
+    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer), true, true);
 
     for batch in iterator.iter() {
         let mut batch_info = HashMap::new();
@@ -102,9 +102,7 @@ fn main() {
             .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
             .collect();
 
-        let kwargs: HashMap<&str, &str> = HashMap::new();
-
-        let embeddings = &encoder.encode(&batch_text, &batch_title, kwargs);
+        let embeddings = &encoder.encode(&batch_text, &batch_title, "cls");
         let embeddings: Vec<Value> = embeddings
             .iter()
             .map(|x| Value::Number(Number::from_f64(*x as f64).unwrap()))
