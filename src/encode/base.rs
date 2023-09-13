@@ -16,12 +16,6 @@ pub trait DocumentEncoder {
     fn encode(&self, texts: &Vec<String>, titles: &Vec<String>, pooler_type: &str) -> Vec<f32>;
 }
 
-/// A base trait for query encoders
-pub trait QueryEncoder {
-    // Encode a query into a vector of floats
-    fn encode(&self, query: &str) -> Vec<f64>;
-}
-
 pub trait RepresentationWriter {
     // Write a representation to a file
     fn write(&mut self, batch_info: &HashMap<&str, Value>);

@@ -7,6 +7,7 @@ mod tests {
     use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
     use serde_json::{Number, Value};
     use std::collections::HashMap;
+    use std::time::Instant;
 
     fn round_to_decimal_places(n: f32, places: u32) -> f32 {
         let multiplier: f32 = 10f32.powi(places as i32);
@@ -15,6 +16,7 @@ mod tests {
 
     #[test]
     fn test_auto_document_encoder_cls_pooling() {
+        let start = Instant::now();
         let model_name = "bert-base-uncased";
         let tokenizer_name = None;
         let document_encoder: AutoDocumentEncoder =
@@ -76,6 +78,8 @@ mod tests {
         assert_eq!(bert_ground_truth_1, bert_output_text1);
         assert_eq!(bert_ground_truth_2, bert_output_text2);
         assert_eq!(embeddings.len(), 1536);
+        let duration = start.elapsed();
+        println!("Time elapsed in expensive_function() is: {:?}", duration);
     }
 
     #[test]
@@ -250,7 +254,7 @@ mod tests {
         let mut iterator =
             JsonlCollectionIterator::new(&path, Some(fields), delimiter, &batch_size);
 
-        iterator.load();
+        iterator.load_compressed();
         assert_eq!(iterator.size, 10);
         assert_eq!(iterator.all_info["docid"].as_array().unwrap().len(), 10);
 

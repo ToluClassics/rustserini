@@ -144,6 +144,75 @@ impl<'a> JsonlCollectionIterator<'a> {
             }
         }
         let mut all_info: HashMap<&str, Value> = HashMap::new();
+        all_info.insert("id", Value::Array(Vec::new()));
+        for key in self.fields.iter() {
+            all_info.insert(key, Value::Array(Vec::new()));
+        }
+        let mut counter: usize = 0;
+
+        for filename in filenames {
+            let file = File::open(&filename).map_err(|err| err.to_string());
+
+            let reader = BufReader::new(file.unwrap());
+            let lines = reader
+                .lines()
+                .map(|line| line.map_err(|err| err.to_string()));
+
+            for (line_i, line) in tqdm!(lines.enumerate()) {
+                let line = line.map_err(|err| err.to_string());
+                let info: serde_json::Value =
+                    serde_json::from_str(&line.unwrap().to_string()).unwrap();
+                let id: String = match info.get("id") {
+                    Some(id_val) => id_val.to_string(),
+                    None => {
+                        match info.get("docid") {
+                            Some(docid_val) => docid_val.to_string(),
+                            None => {
+                                println!("No id or docid found at Line#{:?} in file {}. Line content: {}", line_i, filename.to_str().unwrap(), info.get("contents").unwrap().to_string());
+                                continue;
+                            }
+                        }
+                    }
+                };
+                let fields_info = self.parse_fields_from_info(&info);
+                all_info
+                    .get_mut("id")
+                    .unwrap()
+                    .as_array_mut()
+                    .unwrap()
+                    .push(Value::String(id.to_string()));
+
+                for (i, key) in self.fields.iter().enumerate() {
+                    all_info
+                        .get_mut(key)
+                        .unwrap()
+                        .as_array_mut()
+                        .unwrap()
+                        .push(Value::String(fields_info.clone().unwrap()[i].to_string()));
+                }
+                counter += 1;
+            }
+        }
+        self.size = counter;
+        self.all_info = all_info;
+    }
+
+    pub fn load_compressed(&mut self) {
+        let mut filenames = Vec::new();
+        let collection_path = Path::new(&self.collection_path);
+
+        if collection_path.is_file() {
+            filenames.push(collection_path.to_path_buf());
+        } else {
+            for filename in std::fs::read_dir(collection_path).unwrap() {
+                let filename = filename.unwrap().path();
+
+                if filename.is_file() {
+                    filenames.push(filename);
+                }
+            }
+        }
+        let mut all_info: HashMap<&str, Value> = HashMap::new();
 
         all_info.insert("id", Value::Array(Vec::new()));
         for key in self.fields.iter() {
@@ -151,7 +220,8 @@ impl<'a> JsonlCollectionIterator<'a> {
         }
         let mut counter: usize = 0;
         for filename in filenames {
-            let file = File::open(filename.clone()).map_err(|err| err.to_string());
+            let file = File::open(&filename).map_err(|err| err.to_string());
+
             let gz = GzDecoder::new(file.unwrap());
             let reader = BufReader::new(gz);
             let lines = reader

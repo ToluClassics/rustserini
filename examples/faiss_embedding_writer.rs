@@ -42,6 +42,14 @@ struct Args {
     #[arg(long, action=ArgAction::SetFalse)]
     to_faiss: bool,
 
+    /// Use lowercase in tokenizer
+    #[arg(long, action=ArgAction::SetTrue)]
+    lowercase: bool,
+
+    /// Strip accents in tokenizer
+    #[arg(long, action=ArgAction::SetTrue)]
+    strip_accents: bool,
+
     /// Encoder name or path
     #[arg(long)]
     encoder: String,
@@ -74,9 +82,9 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let fields = args.fields.split(",").collect::<Vec<&str>>();
+    let fields: Vec<&str> = args.fields.split(",").collect::<Vec<&str>>();
 
-    let mut iterator = JsonlCollectionIterator::new(
+    let mut iterator: JsonlCollectionIterator<'_> = JsonlCollectionIterator::new(
         &args.corpus,
         Some(fields),
         &args.delimiter,
@@ -84,12 +92,22 @@ fn main() {
     );
     iterator.load();
 
-    let mut writer = FaissRepresentationWriter::new(&args.embeddings_dir);
+    let mut writer: FaissRepresentationWriter =
+        FaissRepresentationWriter::new(&args.embeddings_dir);
     writer.init_index(768, "Flat");
     writer.open_file();
 
-    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer), true, true);
+    let lowercase = args.lowercase;
+    let strip_accents = args.strip_accents;
 
+    let encoder: AutoDocumentEncoder = AutoDocumentEncoder::new(
+        &args.encoder,
+        Some(&args.tokenizer),
+        lowercase,
+        strip_accents,
+    );
+
+    let mut counter: usize = 0;
     for batch in iterator.iter() {
         let mut batch_info = HashMap::new();
 
@@ -154,6 +172,9 @@ fn main() {
         batch_info.insert("vector", Value::Array(embeddings));
 
         let _ = &writer.write(&batch_info);
+
+        counter += 1;
+        println!("Batch {} encoded", counter);
     }
     writer.save_index();
 }
