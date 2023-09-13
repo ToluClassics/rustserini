@@ -45,6 +45,14 @@ struct Args {
     #[arg(long, action=ArgAction::SetFalse)]
     to_faiss: bool,
 
+    /// Use lowercase in tokenizer
+    #[arg(long, action=ArgAction::SetTrue)]
+    lowercase: bool,
+
+    /// Strip accents in tokenizer
+    #[arg(long, action=ArgAction::SetTrue)]
+    strip_accents: bool,
+
     /// Encoder name or path
     #[arg(long)]
     encoder: String,
@@ -77,8 +85,11 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
+    println!("{:?}", args);
+
     let fields = args.fields.split(",").collect::<Vec<&str>>();
 
+    println!("Initializing Iterator and load data into an iterable");
     let mut iterator = JsonlCollectionIterator::new(
         &args.corpus,
         Some(fields),
@@ -87,11 +98,23 @@ fn main() {
     );
     iterator.load();
 
+    println!("Initialize a representation writer and open a file to store the embeddings");
     let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir);
     writer.open_file();
 
-    let encoder = AutoDocumentEncoder::new(&args.encoder, Some(&args.tokenizer), true, true);
+    let lowercase = args.lowercase;
+    let strip_accents = args.strip_accents;
 
+    println!("Tokenizer lowercase: {:?}", lowercase);
+
+    let encoder = AutoDocumentEncoder::new(
+        &args.encoder,
+        Some(&args.tokenizer),
+        lowercase,
+        strip_accents,
+    );
+
+    let mut counter: usize = 0;
     for batch in iterator.iter() {
         let mut batch_info = HashMap::new();
 
@@ -156,5 +179,8 @@ fn main() {
         batch_info.insert("vector", Value::Array(embeddings));
 
         let _ = &writer.write(&batch_info);
+
+        counter += 1;
+        println!("Batch {} encoded", counter);
     }
 }

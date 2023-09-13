@@ -1,11 +1,24 @@
+import time
 import numpy as np
 from transformers import AutoModel, AutoTokenizer
 
 from pyserini.encode import DocumentEncoder
 
+class SpeedTest: 
+    def __init__(self, testName=""):
+        self.funcName = testName 
+    
+    def __enter__(self):
+        print('Started: {}'.format(self.funcName))
+        self.init_time = time.time()
+        return self 
+    
+    def __exit__(self, type, value, tb):
+        print('Finished: {} in: {:.4f} seconds'.format(self.funcName, time.time() - self.init_time)) 
+
 
 class AutoDocumentEncoder(DocumentEncoder):
-    def __init__(self, model_name, tokenizer_name=None, device='cuda:0', pooling='cls', l2_norm=False):
+    def __init__(self, model_name, tokenizer_name=None, device='cpu', pooling='cls', l2_norm=False):
         self.device = device
         self.model = AutoModel.from_pretrained(model_name)
         self.model.to(self.device)
@@ -38,7 +51,6 @@ class AutoDocumentEncoder(DocumentEncoder):
                 input_kwargs["text"] = texts
 
         inputs = self.tokenizer(**input_kwargs, **shared_tokenizer_kwargs)
-        print(inputs)
         inputs.to(self.device)
         outputs = self.model(**inputs)
         if self.pooling == "mean":
@@ -50,7 +62,11 @@ class AutoDocumentEncoder(DocumentEncoder):
 
 
 if __name__ == '__main__':
-    encoder = AutoDocumentEncoder(model_name='castorini/mdpr-tied-pft-msmarco', device='cpu')
-    queries = ['Title 2 And another sentence.']
-    query_embeddings = encoder.encode(queries, max_length=128)
-    print(query_embeddings[0][:10])
+    with SpeedTest("encode 2 sentences"):
+        encoder = AutoDocumentEncoder(model_name='castorini/mdpr-tied-pft-msmarco', device='cpu')
+        queries = [
+            "did scientific minds lead to the success of the manhattan project",
+        ]
+
+        query_embeddings = encoder.encode(queries, max_length=128)
+        assert(len(query_embeddings[0]), 768)

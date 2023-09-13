@@ -13,7 +13,7 @@ pub struct AutoDocumentEncoder {
     tokenizer: BertTokenizer,
 }
 
-fn fetch_bert_style_config(model_name: &str) -> BertConfig {
+pub fn fetch_bert_style_config(model_name: &str) -> BertConfig {
     let remote_config_path = format!(
         "https://huggingface.co/{model_name}/resolve/main/config.json",
         model_name = model_name
@@ -26,7 +26,11 @@ fn fetch_bert_style_config(model_name: &str) -> BertConfig {
     config
 }
 
-fn fetch_bert_style_vocab(model_name: &str, lowercase: bool, strip_accents: bool) -> BertTokenizer {
+pub fn fetch_bert_style_vocab(
+    model_name: &str,
+    lowercase: bool,
+    strip_accents: bool,
+) -> BertTokenizer {
     let remote_vocab_path = format!(
         "https://huggingface.co/{model_name}/resolve/main/vocab.txt",
         model_name = model_name
@@ -41,7 +45,7 @@ fn fetch_bert_style_vocab(model_name: &str, lowercase: bool, strip_accents: bool
     vocab
 }
 
-fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSentenceEmbeddings {
+pub fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSentenceEmbeddings {
     let remote_model_path = format!(
         "https://huggingface.co/{model_name}/resolve/main/rust_model.ot",
         model_name = &model_name
@@ -64,7 +68,7 @@ fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSenten
     model
 }
 
-fn mean_pooling(last_hidden_state: Tensor, attention_mask: Tensor) -> Tensor {
+pub fn mean_pooling(last_hidden_state: Tensor, attention_mask: Tensor) -> Tensor {
     let mut output_vectors = Vec::new();
     let input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(&last_hidden_state);
     let sum_embeddings = (last_hidden_state * &input_mask_expanded).sum_dim_intlist(
