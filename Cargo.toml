@@ -11,6 +11,8 @@ ndarray = "0.15.6"
 tch = "0.10.0"
 rust_tokenizers = "8.1.0"
 serde_json = "1.0"
+serde = "1.0"
+serde_derive = "1.0"
 flate2 = "1.0"
 kdam = "0.3.0"
 tokenizers = "0.13.3"
@@ -19,6 +21,8 @@ structopt = "0.3.26"
 "faiss" = "0.12.0"
 anyhow = "1.0"
 bzip2 = "0.4.4"
+records = "0.2.0"
+indicatif = "0.17.6"
 
 [[example]]
 name = "json_embedding_writer"
@@ -28,3 +32,4 @@ name = "faiss_embedding_writer"
 
 [[example]]
 name = "load_mdpr_model_local"
+

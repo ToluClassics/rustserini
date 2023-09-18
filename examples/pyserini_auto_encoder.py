@@ -18,7 +18,7 @@ class SpeedTest:
 
 
 class AutoDocumentEncoder(DocumentEncoder):
-    def __init__(self, model_name, tokenizer_name=None, device='cpu', pooling='cls', l2_norm=False):
+    def __init__(self, model_name, tokenizer_name=None, device='cuda:0', pooling='cls', l2_norm=False):
         self.device = device
         self.model = AutoModel.from_pretrained(model_name)
         self.model.to(self.device)
@@ -62,11 +62,13 @@ class AutoDocumentEncoder(DocumentEncoder):
 
 
 if __name__ == '__main__':
-    with SpeedTest("encode 2 sentences"):
-        encoder = AutoDocumentEncoder(model_name='castorini/mdpr-tied-pft-msmarco', device='cpu')
-        queries = [
-            "did scientific minds lead to the success of the manhattan project",
-        ]
+    encoder = AutoDocumentEncoder(model_name='castorini/mdpr-tied-pft-msmarco', device='cpu')
 
+    with SpeedTest("encode 2 sentences"):
+        queries = [
+            "Title 1 Hello, I am a sentence!",
+            "Title 2 Hello, I am a sentence!",
+
+        ]
         query_embeddings = encoder.encode(queries, max_length=128)
-        assert(len(query_embeddings[0]), 768)
+        # print(query_embeddings[0][:10])

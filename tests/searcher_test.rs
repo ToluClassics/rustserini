@@ -31,11 +31,12 @@ mod tests {
             768 as usize,
         );
 
-        searcher.search_vector(
+        let result = searcher.search_vector(
             "did scientific minds lead to the success of the manhattan project".to_string(),
             10,
-            1,
-            true,
+            false,
         );
+
+        println!("Result {:?}", result);
     }
 }

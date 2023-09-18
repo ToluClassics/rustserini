@@ -20,3 +20,4 @@ test/
 .DS_Store
 corpus/
 venv/
+.pytest_cache/

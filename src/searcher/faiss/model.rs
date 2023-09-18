@@ -1,10 +1,10 @@
 use crate::encode::auto::{
     fetch_bert_style_config, fetch_bert_style_model, fetch_bert_style_vocab, mean_pooling,
 };
-use rust_bert::bert::{BertConfig, BertForSentenceEmbeddings};
+use rust_bert::bert::BertForSentenceEmbeddings;
 use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
 
-use tch::{nn, no_grad, Device, Kind, Tensor};
+use tch::{no_grad, Device, Tensor};
 
 /// A base trait for query encoders/// A base trait for document encoders
 pub trait QueryEncoder {

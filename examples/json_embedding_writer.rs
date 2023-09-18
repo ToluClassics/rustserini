@@ -2,8 +2,8 @@ use clap::{ArgAction, Parser};
 use rustserini::encode::auto::AutoDocumentEncoder;
 use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
 use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
-use serde_json::{Number, Value};
 use std::collections::HashMap;
+use std::time::Instant;
 
 /// Simple program to encode a corpus and store the embeddings in a jsonl file
 /// Download the msmarco passage dataset using the below command:
@@ -79,28 +79,25 @@ struct Args {
 
     /// Embedding dimension
     #[arg(long, default_value_t = 768)]
-    embedding_dim: u16,
+    embedding_dim: u32,
+}
+
+fn sanitize_string(s: &str) -> String {
+    s.replace("\"", "").replace("\\", "")
 }
 
 fn main() {
+    let start = Instant::now();
     let args = Args::parse();
 
-    println!("{:?}", args);
-
-    let fields = args.fields.split(",").collect::<Vec<&str>>();
-
-    println!("Initializing Iterator and load data into an iterable");
-    let mut iterator = JsonlCollectionIterator::new(
-        &args.corpus,
-        Some(fields),
-        &args.delimiter,
-        &args.batch_size,
-    );
-    iterator.load();
+    let fields: Vec<String> = args.fields.split(',').map(|s| s.to_string()).collect();
+    let mut iterator: JsonlCollectionIterator =
+        JsonlCollectionIterator::new(fields, "docid".to_string(), args.delimiter, args.batch_size);
+    let _ = iterator.load(args.corpus);
 
     println!("Initialize a representation writer and open a file to store the embeddings");
-    let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir);
-    writer.open_file();
+    let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir, args.embedding_dim);
+    let _ = writer.open_file();
 
     let lowercase = args.lowercase;
     let strip_accents = args.strip_accents;
@@ -118,69 +115,24 @@ fn main() {
     for batch in iterator.iter() {
         let mut batch_info = HashMap::new();
 
-        let batch_text: Vec<String> = batch["text"]
-            .iter()
-            .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
-            .collect();
-
-        let batch_title: Vec<String> = batch["title"]
-            .iter()
-            .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
-            .collect();
-
-        let batch_id: Vec<String> = batch["id"]
-            .iter()
-            .map(|x| x.to_string().replace("\"", "").replace("\\", ""))
-            .collect();
+        let batch_text: Vec<String> = batch["text"].iter().map(|x| sanitize_string(x)).collect();
+        let batch_title: Vec<String> = batch["title"].iter().map(|x| sanitize_string(x)).collect();
+        let batch_id: Vec<String> = batch["id"].iter().map(|x| sanitize_string(x)).collect();
 
         let embeddings = &encoder.encode(&batch_text, &batch_title, "cls");
-        let embeddings: Vec<Value> = embeddings
-            .iter()
-            .map(|x| Value::Number(Number::from_f64(*x as f64).unwrap()))
-            .collect();
 
-        let embeddings_value: Vec<_> = embeddings.chunks(args.embedding_dim as usize).collect();
+        let mut embeddings: Vec<f32> = embeddings.as_ref().unwrap().to_vec();
 
-        let embeddings: Vec<Value> = embeddings_value
-            .iter()
-            .map(|x| Value::Array(x.to_vec()))
-            .collect();
+        batch_info.insert("text", batch_text);
+        batch_info.insert("title", batch_title);
+        batch_info.insert("id", batch_id);
 
-        batch_info.insert(
-            "text",
-            Value::Array(
-                batch_text
-                    .iter()
-                    .map(|x| Value::String(x.to_string()))
-                    .collect(),
-            ),
-        );
-
-        batch_info.insert(
-            "title",
-            Value::Array(
-                batch_title
-                    .iter()
-                    .map(|x| Value::String(x.to_string()))
-                    .collect(),
-            ),
-        );
-
-        batch_info.insert(
-            "id",
-            Value::Array(
-                batch_id
-                    .iter()
-                    .map(|x| Value::String(x.to_string()))
-                    .collect(),
-            ),
-        );
-
-        batch_info.insert("vector", Value::Array(embeddings));
-
-        let _ = &writer.write(&batch_info);
+        let _ = &writer.write(&batch_info, &mut embeddings);
 
         counter += 1;
         println!("Batch {} encoded", counter);
     }
+
+    let duration = start.elapsed();
+    println!("Time elapsed in expensive_function() is: {:?}", duration);
 }

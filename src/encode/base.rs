@@ -1,5 +1,5 @@
 extern crate serde_json;
-use serde_json::Value;
+use rust_bert::RustBertError;
 use std::collections::HashMap;
 
 /// A base trait for document encoders
@@ -13,22 +13,33 @@ pub trait DocumentEncoder {
     ) -> Self;
 
     // Encode a document or a set of documents into a vector of floats
-    fn encode(&self, texts: &Vec<String>, titles: &Vec<String>, pooler_type: &str) -> Vec<f32>;
+    fn encode(
+        &self,
+        texts: &Vec<String>,
+        titles: &Vec<String>,
+        pooler_type: &str,
+    ) -> Result<Vec<f32>, RustBertError>;
 }
 
 pub trait RepresentationWriter {
     // Write a representation to a file
-    fn write(&mut self, batch_info: &HashMap<&str, Value>);
+    fn write(
+        &mut self,
+        batch_info: &HashMap<&str, Vec<String>>,
+        embedding: &mut Vec<f32>,
+    ) -> Result<(), anyhow::Error>;
 
     // Create a new instance of a RepresentationWriter
-    fn new(path: &str) -> Self;
+    fn new(path: &str, dimension: u32) -> Self;
 
     // Open File
-    fn open_file(&mut self);
+    fn open_file(&mut self) -> Result<(), anyhow::Error>;
 
     // Save Index to file
-    fn save_index(&mut self);
+    fn save_index(&mut self) -> Result<(), anyhow::Error>;
 
     // Initialize Index
     fn init_index(&mut self, dim: u32, index_type: &str);
+
+    fn save_docids(&mut self) -> Result<(), anyhow::Error>;
 }

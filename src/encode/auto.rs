@@ -2,6 +2,7 @@ use crate::encode::base::DocumentEncoder;
 use rust_bert::bert::{BertConfig, BertForSentenceEmbeddings};
 use rust_bert::resources::{RemoteResource, ResourceProvider};
 use rust_bert::Config;
+use rust_bert::RustBertError;
 use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
 use tch::{nn, no_grad, Device, Kind, Tensor};
 
@@ -55,6 +56,7 @@ pub fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSe
     let model_resource = RemoteResource::from_pretrained(model_tuple);
     let model_path = model_resource.get_local_path().unwrap();
     let device = Device::cuda_if_available();
+    println!("device: {:?}", device);
     let mut vs = nn::VarStore::new(device);
     let model: BertForSentenceEmbeddings;
 
@@ -100,7 +102,12 @@ impl DocumentEncoder for AutoDocumentEncoder {
         Self { model, tokenizer }
     }
 
-    fn encode(&self, texts: &Vec<String>, titles: &Vec<String>, pooler_type: &str) -> Vec<f32> {
+    fn encode(
+        &self,
+        texts: &Vec<String>,
+        titles: &Vec<String>,
+        pooler_type: &str,
+    ) -> Result<Vec<f32>, RustBertError> {
         let texts = if !titles.is_empty() {
             texts
                 .iter()
@@ -108,7 +115,7 @@ impl DocumentEncoder for AutoDocumentEncoder {
                 .map(|(text, title)| format!("{} {}", title, text))
                 .collect::<Vec<_>>()
         } else {
-            texts.clone()
+            texts.to_owned()
         };
 
         let tokenized_input =
@@ -118,14 +125,15 @@ impl DocumentEncoder for AutoDocumentEncoder {
         let max_len = 128;
 
         let pad_token_id = 0;
-        let tokens_ids = tokenized_input
+
+        let tokens_ids: Vec<Vec<i64>> = tokenized_input
             .into_iter()
             .map(|input| {
-                let mut token_ids = input.token_ids;
-                token_ids.extend(vec![pad_token_id; max_len - token_ids.len()]);
-                token_ids
+                let mut ids = input.token_ids;
+                ids.resize(max_len, pad_token_id);
+                ids
             })
-            .collect::<Vec<_>>();
+            .collect();
 
         let tokens_masks = tokens_ids
             .iter()
@@ -188,6 +196,7 @@ impl DocumentEncoder for AutoDocumentEncoder {
         }
 
         let embeddings: Vec<f32> = Vec::from(output);
-        return embeddings;
+
+        Ok(embeddings)
     }
 }

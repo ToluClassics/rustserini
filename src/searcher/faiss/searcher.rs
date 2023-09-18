@@ -2,17 +2,37 @@ use crate::searcher::faiss::model::{AutoQueryEncoder, QueryEncoder};
 
 use faiss::index::io::read_index;
 use faiss::index::IndexImpl;
-use faiss::{index_factory, Index, MetricType};
+use faiss::Index;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
+#[derive(Debug)]
+pub enum FaissSearchReturn {
+    Dense(Vec<DenseSearchResult>),
+    PRFDense(Vec<PRFDenseSearchResult>),
+}
+
 pub struct FaissSearcher {
-    index_dir: String,
     query_encoder: AutoQueryEncoder,
     dimension: usize,
     index: IndexImpl,
     docids: Vec<String>,
+}
+
+#[derive(Debug)]
+#[records::record]
+pub struct DenseSearchResult {
+    docid: String,
+    score: f32,
+}
+
+#[derive(Debug)]
+#[records::record]
+pub struct PRFDenseSearchResult {
+    docid: String,
+    score: f32,
+    prf_score: Vec<f32>,
 }
 
 impl FaissSearcher {
@@ -20,7 +40,6 @@ impl FaissSearcher {
         let index: IndexImpl = Self::load_index(&index_dir);
         let docids: Vec<String> = Self::load_docids(&index_dir);
         Self {
-            index_dir,
             query_encoder,
             dimension,
             index,
@@ -48,12 +67,37 @@ impl FaissSearcher {
             .collect()
     }
 
-    pub fn search_vector(&mut self, query: String, k: usize, threads: usize, return_vector: bool) {
+    pub fn search_vector(
+        &mut self,
+        query: String,
+        k: usize,
+        return_vector: bool,
+    ) -> FaissSearchReturn {
         let emb_q = self.query_encoder.encode_single(query, "cls");
 
         assert_eq!(&emb_q.len(), &self.dimension);
         let result = self.index.search(&emb_q, k).unwrap();
 
         println!("Result {:?}", result);
+        let scores = result.distances.iter();
+        let indices = result.labels.iter();
+
+        if return_vector {
+            // Needs more work
+            let result_iter = indices
+                .zip(scores)
+                .map(|(x, y)| PRFDenseSearchResult::new(x.to_string(), *y, emb_q.clone()));
+
+            FaissSearchReturn::PRFDense(result_iter.collect())
+        } else {
+            let result_iter = indices.zip(scores).map(|(x, y)| {
+                DenseSearchResult::new(
+                    self.docids[usize::try_from(x.get().unwrap()).unwrap()].clone(),
+                    *y,
+                )
+            });
+
+            FaissSearchReturn::Dense(result_iter.collect())
+        }
     }
 }
