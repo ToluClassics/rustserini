@@ -6,7 +6,7 @@ use faiss::{index_factory, Index, MetricType};
 use flate2::read::GzDecoder;
 use kdam::tqdm;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};

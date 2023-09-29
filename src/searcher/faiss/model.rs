@@ -6,6 +6,11 @@ use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
 
 use tch::{no_grad, Device, Tensor};
 
+pub enum QueryType {
+    Query { query: String },
+    Queries { query: Vec<String> },
+}
+
 /// A base trait for query encoders/// A base trait for document encoders
 pub trait QueryEncoder {
     // instantiating a new DocumentEncoder instance
@@ -17,9 +22,7 @@ pub trait QueryEncoder {
     ) -> Self;
 
     // Encode a document or a set of documents into a vector of floats
-    fn encode(&self, queries: &Vec<String>, pooler_type: &str) -> Vec<f32>;
-
-    fn encode_single(&self, queries: String, pooler_type: &str) -> Vec<f32>;
+    fn encode(&self, query: QueryType, pooler_type: &str) -> Vec<f32>;
 }
 
 pub struct AutoQueryEncoder {
@@ -42,91 +45,12 @@ impl QueryEncoder for AutoQueryEncoder {
         Self { model, tokenizer }
     }
 
-    fn encode(&self, queries: &Vec<String>, pooler_type: &str) -> Vec<f32> {
-        let texts = queries;
+    fn encode(&self, queries: QueryType, pooler_type: &str) -> Vec<f32> {
+        let texts = match queries {
+            QueryType::Query { query } => vec![query],
+            QueryType::Queries { query } => query,
+        };
 
-        let tokenized_input =
-            self.tokenizer
-                .encode_list(&texts, 128, &TruncationStrategy::LongestFirst, 0);
-
-        let max_len = 128;
-
-        let pad_token_id = 0;
-        let tokens_ids = tokenized_input
-            .into_iter()
-            .map(|input| {
-                let mut token_ids = input.token_ids;
-                token_ids.extend(vec![pad_token_id; max_len - token_ids.len()]);
-                token_ids
-            })
-            .collect::<Vec<_>>();
-
-        let tokens_masks = tokens_ids
-            .iter()
-            .map(|input| {
-                Tensor::of_slice(
-                    &input
-                        .iter()
-                        .map(|&e| i64::from(e != pad_token_id))
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        let tokens_ids = tokens_ids
-            .into_iter()
-            .map(|input| Tensor::of_slice(&(input)))
-            .collect::<Vec<_>>();
-
-        let tokens_ids = Tensor::stack(&tokens_ids, 0);
-        let tokens_masks = Tensor::stack(&tokens_masks, 0);
-        let output: Tensor;
-
-        if pooler_type == "mean" {
-            let hidden_state: Tensor = no_grad(|| {
-                self.model
-                    .forward_t(
-                        Some(&tokens_ids),
-                        Some(&tokens_masks),
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
-                    .unwrap()
-            })
-            .hidden_state;
-
-            output = mean_pooling(hidden_state, tokens_masks);
-        } else if pooler_type == "cls" {
-            output = no_grad(|| {
-                self.model
-                    .forward_t(
-                        Some(&tokens_ids),
-                        Some(&tokens_masks),
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
-                    .unwrap()
-            })
-            .hidden_state
-            .select(1, 0);
-        } else {
-            panic!("pooler_type must be either mean or cls");
-        }
-
-        let embeddings: Vec<f32> = Vec::from(output);
-        return embeddings;
-    }
-
-    fn encode_single(&self, queries: String, pooler_type: &str) -> Vec<f32> {
-        let texts = &vec![queries];
         let tokenized_input =
             self.tokenizer
                 .encode_list(&texts, 128, &TruncationStrategy::LongestFirst, 0);
