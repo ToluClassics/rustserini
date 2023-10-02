@@ -39,6 +39,9 @@ pub struct PRFDenseSearchResult {
 
 impl FaissSearcher {
     pub fn new(index_dir: String, query_encoder: AutoQueryEncoder, dimension: usize) -> Self {
+        /*
+        Create a new instance of FaissSearcher
+         */
         let index: IndexImpl = Self::load_index(&index_dir);
         let docids: Vec<String> = Self::load_docids(&index_dir);
         Self {
@@ -50,6 +53,9 @@ impl FaissSearcher {
     }
 
     fn load_index(index_dir: &String) -> IndexImpl {
+        /*
+        Load a Faiss index from a directory
+         */
         let index_dir: PathBuf = PathBuf::from(index_dir);
         let index_path: PathBuf = index_dir.join("index");
         let index: IndexImpl = read_index(index_path.as_path().display().to_string()).unwrap();
@@ -58,6 +64,9 @@ impl FaissSearcher {
     }
 
     fn load_docids(index_dir: &String) -> Vec<String> {
+        /*
+        Load a list of docids from a file
+         */
         let index_dir: PathBuf = PathBuf::from(index_dir);
         let docid_path: PathBuf = index_dir.join("docid");
         let file = File::open(docid_path).map_err(|err| err.to_string());
@@ -75,6 +84,9 @@ impl FaissSearcher {
         k: usize,
         return_vector: bool,
     ) -> Result<FaissSearchReturn, anyhow::Error> {
+        /*
+        Search a query and return the top k results
+         */
         let query = QueryType::Query { query };
         let emb_q = self.query_encoder.encode(query, "cls");
 
@@ -110,6 +122,9 @@ impl FaissSearcher {
         k: usize,
         _return_vector: bool,
     ) -> Result<HashMap<String, FaissSearchReturn>, anyhow::Error> {
+        /*
+        Search a batch of queries and return the top k results
+         */
         let queries = QueryType::Queries { query: queries };
         let emb_q = self.query_encoder.encode(queries, "cls");
 

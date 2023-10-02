@@ -41,5 +41,6 @@ pub trait RepresentationWriter {
     // Initialize Index
     fn init_index(&mut self, dim: u32, index_type: &str);
 
+    // Save Docids to file
     fn save_docids(&mut self) -> Result<(), anyhow::Error>;
 }

@@ -15,6 +15,9 @@ pub struct AutoDocumentEncoder {
 }
 
 pub fn fetch_bert_style_config(model_name: &str) -> BertConfig {
+    /*
+    Download and instantiate Bert Configuration using the  model name
+    */
     let remote_config_path = format!(
         "https://huggingface.co/{model_name}/resolve/main/config.json",
         model_name = model_name
@@ -32,6 +35,9 @@ pub fn fetch_bert_style_vocab(
     lowercase: bool,
     strip_accents: bool,
 ) -> BertTokenizer {
+    /*
+    Download and instantiate Bert style Tokenizers using the model name
+    */
     let remote_vocab_path = format!(
         "https://huggingface.co/{model_name}/resolve/main/vocab.txt",
         model_name = model_name
@@ -47,6 +53,9 @@ pub fn fetch_bert_style_vocab(
 }
 
 pub fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSentenceEmbeddings {
+    /*
+    Download and instantiate Bert style models using the model name
+    */
     let remote_model_path = format!(
         "https://huggingface.co/{model_name}/resolve/main/rust_model.ot",
         model_name = &model_name
@@ -71,6 +80,9 @@ pub fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSe
 }
 
 pub fn mean_pooling(last_hidden_state: Tensor, attention_mask: Tensor) -> Tensor {
+    /*
+    Compute mean pooling of BERT hidden states
+    */
     let mut output_vectors = Vec::new();
     let input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(&last_hidden_state);
     let sum_embeddings = (last_hidden_state * &input_mask_expanded).sum_dim_intlist(
@@ -108,6 +120,9 @@ impl DocumentEncoder for AutoDocumentEncoder {
         titles: &Vec<String>,
         pooler_type: &str,
     ) -> Result<Vec<f32>, RustBertError> {
+        /*
+        Encode a list of texts and/or titles into a list of vectors
+        */
         let texts = if !titles.is_empty() {
             texts
                 .iter()
