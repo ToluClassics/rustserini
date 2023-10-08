@@ -10,7 +10,7 @@ mod tests {
     // }
 
     #[test]
-    fn test_searcher() {
+    fn test_faiss_searcher() {
         let start = Instant::now();
         let model_name = "castorini/mdpr-tied-pft-msmarco";
         let tokenizer_name = None;
@@ -41,7 +41,7 @@ mod tests {
     }
 
     #[test]
-    fn test_batch_searcher() {
+    fn test_faiss_batch_searcher() {
         let start = Instant::now();
         let model_name = "castorini/mdpr-tied-pft-msmarco";
         let tokenizer_name = None;
@@ -76,4 +76,7 @@ mod tests {
         let duration = start.elapsed();
         println!("Time elapsed in expensive_function() is: {:?}", duration);
     }
+
+    #[test]
+    fn test_lucene_searcher()
 }

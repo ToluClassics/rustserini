@@ -23,6 +23,12 @@ anyhow = "1.0"
 bzip2 = "0.4.4"
 records = "0.2.0"
 indicatif = "0.17.6"
+jni-sys = "0.3.0"
+j4rs = "0.17.1"
+
+[dependencies.jni]
+version = "0.21.0"
+features = ["invocation"]
 
 [[example]]
 name = "json_embedding_writer"
