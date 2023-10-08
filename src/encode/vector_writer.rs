@@ -69,6 +69,9 @@ impl JsonlCollectionIterator {
         delimiter: String,
         batch_size: usize,
     ) -> JsonlCollectionIterator {
+        /*
+        This function instantiates a new JsonlCollectionIterator instance for looping through a JSON collection
+         */
         let fields = fields;
         let docid_field = docid_field;
         let delimiter = delimiter;
@@ -91,6 +94,9 @@ impl JsonlCollectionIterator {
     }
 
     pub fn load(&mut self, collection_path: String) -> Result<(), anyhow::Error> {
+        /*
+        This function loads an entire JSON collection or a folder of JSON files.
+        */
         let mut filenames = Vec::new();
         let collection_path = Path::new(&collection_path);
 
@@ -148,6 +154,10 @@ impl JsonlCollectionIterator {
     }
 
     pub fn load_compressed(&mut self, collection_path: String) -> Result<(), anyhow::Error> {
+        /*
+        This function loads a compressed JSON collection or a folder of JSON files.
+        TODO: Merge this function with load()
+        */
         let mut filenames = Vec::new();
         let collection_path = Path::new(&collection_path);
 
@@ -206,6 +216,9 @@ impl JsonlCollectionIterator {
     }
 
     pub fn iter(&mut self) -> impl Iterator<Item = HashMap<&str, Vec<String>>> {
+        /*
+        This function creates an Iterable for looping through the collection in batches.
+        */
         let total_len = self.size;
         let shard_size = total_len / self.shard_num;
         let start_idx = self.shard_id * shard_size;
@@ -349,11 +362,13 @@ impl RepresentationWriter for FaissRepresentationWriter {
 
     fn write(
         &mut self,
-        _batch_info: &HashMap<&str, Vec<String>>,
+        batch_info: &HashMap<&str, Vec<String>>,
         embeddings: &mut Vec<f32>,
     ) -> Result<(), anyhow::Error> {
         let embeddings = embeddings.as_mut_slice();
         self.index.add(embeddings).unwrap();
+
+        self.docids.extend(batch_info["id"].clone());
 
         Ok(())
     }
