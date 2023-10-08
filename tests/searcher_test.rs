@@ -2,6 +2,7 @@
 mod tests {
     use rustserini::searcher::faiss::model::{AutoQueryEncoder, QueryEncoder, QueryType};
     use rustserini::searcher::faiss::searcher::{FaissSearchReturn, FaissSearcher};
+    use rustserini::searcher::lucene::searcher::LuceneSearcher;
     use std::time::Instant;
 
     // fn round_to_decimal_places(n: f32, places: u32) -> f32 {
@@ -78,5 +79,10 @@ mod tests {
     }
 
     #[test]
-    fn test_lucene_searcher()
+    fn test_lucene_searcher() {
+        let search_instance = LuceneSearcher::new(
+            "corpus/msmarco-passage-mini/lucene-index-msmarco".to_string(),
+            None,
+        );
+    }
 }
