@@ -3,24 +3,21 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub struct LuceneSearcher {
-    // index_dir: InvocationArg,
-    num_docs: Option<usize>,
+    pub num_docs: usize,
     jvm_object: Jvm,
     searcher: Instance,
     prebuilt_index_name: Option<String>,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-pub struct SearcherResult {
-    docid: String,
-    lucene_docid: i32,
-    score: f32,
-    contents: String,
-    raw: String,
-    lucene_document: String,
+pub struct LuceneSearcherResult {
+    pub docid: String,
+    pub lucene_docid: i32,
+    pub score: f32,
+    pub raw: String,
 }
 
-pub enum Query {
+pub enum LuceneQuery {
     String(String),
     Instance(Instance),
 }
@@ -30,13 +27,16 @@ impl LuceneSearcher {
         index_dir: String,
         prebuilt_index_name: Option<String>,
     ) -> Result<Self, anyhow::Error> {
-        let index_dir = InvocationArg::try_from(index_dir).unwrap();
-        let entry = ClasspathEntry::new("resources/anserini-0.20.1-SNAPSHOT-fatjar.jar");
+        let entry = ClasspathEntry::new("src/resources/anserini-0.20.1-SNAPSHOT-fatjar.jar");
         let jvm_object: Jvm = JvmBuilder::new().classpath_entry(entry).build()?;
+
+        let index_dir = InvocationArg::try_from(index_dir)?;
 
         let searcher =
             jvm_object.create_instance("io.anserini.search.SimpleSearcher", &[index_dir])?;
-        let num_docs = None;
+
+        let num_docs = jvm_object.invoke(&searcher, "get_total_num_docs", &Vec::new())?;
+        let num_docs: usize = jvm_object.to_rust(num_docs)?;
 
         Ok(Self {
             num_docs,
@@ -48,15 +48,15 @@ impl LuceneSearcher {
 
     pub fn search(
         &self,
-        q: Query,
+        q: LuceneQuery,
         k: i8,
-        query_generator: Option<Instance>,
+        _query_generator: Option<Instance>,
         fields: Option<HashMap<String, f32>>,
-        strip_segment_id: bool,
-        remove_dups: bool,
-    ) -> Result<Vec<SearcherResult>, anyhow::Error> {
+        _strip_segment_id: bool,
+        _remove_dups: bool,
+    ) -> Result<Vec<LuceneSearcherResult>, anyhow::Error> {
         let jfields: Option<Instance>;
-        let hits: Vec<SearcherResult>;
+        let hits: Vec<LuceneSearcherResult>;
         match fields {
             Some(fields) => {
                 jfields = Some(self.jvm_object.java_map(
@@ -71,30 +71,31 @@ impl LuceneSearcher {
         }
 
         match q {
-            Query::String(q) => {
+            LuceneQuery::String(q) => {
+                println!("Query: {:?}", &q);
                 let query_str = InvocationArg::try_from(q)?;
-                let results = self
-                    .jvm_object
-                    .invoke(&self.searcher, "search", &vec![query_str])?;
-                hits = self.jvm_object.to_rust(results)?;
+                let k = InvocationArg::try_from(k)?.into_primitive()?;
+
+                if Option::is_some(&jfields) {
+                    let results = self.jvm_object.invoke(
+                        &self.searcher,
+                        "search_fields",
+                        &vec![query_str, jfields.unwrap().into(), k],
+                    )?;
+                    hits = self.jvm_object.to_rust(results)?;
+                } else {
+                    let results =
+                        self.jvm_object
+                            .invoke(&self.searcher, "search", &vec![query_str, k])?;
+                    hits = self.jvm_object.to_rust(results)?;
+                }
             }
-            Query::Instance(q) => {
-                let results = self.jvm_object.invoke(&self.searcher, "search", &[])?;
-                hits = self.jvm_object.to_rust(results)?;
+            LuceneQuery::Instance(_q) => {
+                // to be implemented
+                hits = Vec::new();
             }
         }
 
         Ok(hits)
-    }
-
-    pub fn check_num_docs(&self) -> Result<usize, anyhow::Error> {
-        let num_docs = self
-            .jvm_object
-            .invoke(&self.searcher, "get_total_num_docs", &Vec::new())
-            .unwrap();
-
-        let num_docs: usize = self.jvm_object.to_rust(num_docs)?;
-
-        Ok(num_docs)
     }
 }

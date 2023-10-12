@@ -280,7 +280,7 @@ impl RepresentationWriter for JsonlRepresentationWriter {
                 "contents": contents,
                 "vector": vector,
             });
-            writeln!(file, "{}", record);
+            let _ = writeln!(file, "{}", record);
         }
 
         Ok(())
