@@ -1,13 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use rustserini::searcher::faiss::model::{AutoQueryEncoder, QueryEncoder, QueryType};
+    use rustserini::searcher::faiss::model::{AutoQueryEncoder, QueryEncoder};
     use rustserini::searcher::faiss::searcher::{FaissSearchReturn, FaissSearcher};
+    use rustserini::searcher::lucene::searcher::{LuceneQuery, LuceneSearcher};
     use std::time::Instant;
-
-    // fn round_to_decimal_places(n: f32, places: u32) -> f32 {
-    //     let multiplier: f32 = 10f32.powi(places as i32);
-    //     (n * multiplier).round() / multiplier
-    // }
 
     #[test]
     fn test_faiss_searcher() {
@@ -78,5 +74,24 @@ mod tests {
     }
 
     #[test]
-    fn test_lucene_searcher()
+    fn test_lucene_searcher() {
+        let search_instance = LuceneSearcher::new(
+            "/Users/mac/Documents/castorini/anserini/indexes/msmarco-passage/lucene-index-msmarco"
+                .to_string(),
+            None,
+        )
+        .unwrap();
+
+        assert_eq!(search_instance.num_docs, 8841823);
+
+        let search_query = LuceneQuery::String(
+            "did scientific minds lead to the success of the manhattan project".to_string(),
+        );
+
+        let result = search_instance
+            .search(search_query, 10, None, None, false, false)
+            .unwrap();
+
+        assert_eq!(result[0].docid, "0")
+    }
 }
