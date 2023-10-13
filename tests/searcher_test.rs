@@ -94,4 +94,30 @@ mod tests {
 
         assert_eq!(result[0].docid, "0")
     }
+
+    #[test]
+    fn test_batch_lucene_searcher() {
+        let search_instance = LuceneSearcher::new(
+            "/Users/mac/Documents/castorini/anserini/indexes/msmarco-passage/lucene-index-msmarco"
+                .to_string(),
+            None,
+        )
+        .unwrap();
+
+        let result = search_instance
+            .batch_search(
+                vec![
+                    "did scientific minds lead to the success of the manhattan project".to_string(),
+                    "did scientific minds lead to the success of the manhattan project".to_string(),
+                ],
+                vec!["0".to_string(), "1".to_string()],
+                10,
+                1,
+                None,
+                None,
+            )
+            .unwrap();
+
+        println!("{:?}", result.get("0").unwrap()[0]);
+    }
 }
