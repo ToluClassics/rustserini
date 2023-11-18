@@ -6,16 +6,14 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rust-bert = "0.20.0"
 ndarray = "0.15.6"
-tch = "0.10.0"
 rust_tokenizers = "8.1.0"
 serde_json = "1.0"
 serde = "1.0"
 serde_derive = "1.0"
 flate2 = "1.0"
-kdam = "0.3.0"
-tokenizers = "0.13.3"
+kdam = "0.5.0"
+tokenizers = "0.15.0"
 clap = "4.2.7"
 structopt = "0.3.26"
 "faiss" = "0.12.0"
@@ -24,13 +22,14 @@ bzip2 = "0.4.4"
 records = "0.2.0"
 indicatif = "0.17.6"
 j4rs = "0.17.1"
+hf-hub = "0.3.2"
+
+candle-transformers = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
+candle-core = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
+candle-nn = { git = "https://github.com/huggingface/candle.git", version = "0.3.0" }
 
 [[example]]
 name = "json_embedding_writer"
 
 [[example]]
 name = "faiss_embedding_writer"
-
-[[example]]
-name = "load_mdpr_model_local"
-

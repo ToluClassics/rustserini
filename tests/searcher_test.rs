@@ -6,12 +6,11 @@ mod tests {
     use std::time::Instant;
 
     #[test]
-    fn test_faiss_searcher() {
+    fn test_faiss_searcher() -> anyhow::Result<()> {
         let start = Instant::now();
         let model_name = "castorini/mdpr-tied-pft-msmarco";
-        let tokenizer_name = None;
         let query_encoder: AutoQueryEncoder =
-            AutoQueryEncoder::new(model_name, tokenizer_name, true, true);
+            AutoQueryEncoder::new(model_name, true, true);
 
         let mut searcher = FaissSearcher::new(
             "corpus/msmarco-passage-mini/pyserini".to_string(),
@@ -34,15 +33,16 @@ mod tests {
         }
         let duration = start.elapsed();
         println!("Time elapsed in expensive_function() is: {:?}", duration);
+
+        Ok(())
     }
 
     #[test]
-    fn test_faiss_batch_searcher() {
+    fn test_faiss_batch_searcher() -> anyhow::Result<()> {
         let start = Instant::now();
         let model_name = "castorini/mdpr-tied-pft-msmarco";
-        let tokenizer_name = None;
         let query_encoder: AutoQueryEncoder =
-            AutoQueryEncoder::new(model_name, tokenizer_name, true, true);
+            AutoQueryEncoder::new(model_name, true, true);
 
         let mut searcher = FaissSearcher::new(
             "corpus/msmarco-passage-mini/pyserini".to_string(),
@@ -71,6 +71,8 @@ mod tests {
 
         let duration = start.elapsed();
         println!("Time elapsed in expensive_function() is: {:?}", duration);
+
+        Ok(())
     }
 
     #[test]

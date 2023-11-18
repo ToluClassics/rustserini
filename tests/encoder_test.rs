@@ -14,11 +14,10 @@ mod tests {
     }
 
     #[test]
-    fn test_auto_document_encoder_cls_pooling() {
+    fn test_auto_document_encoder_cls_pooling() -> anyhow::Result<()> {
         let model_name = "bert-base-uncased";
-        let tokenizer_name = None;
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, tokenizer_name, true, true);
+            AutoDocumentEncoder::new(model_name, true, true);
         let start = Instant::now();
 
         let texts = vec![
@@ -26,7 +25,7 @@ mod tests {
             "And another sentence.".to_string(),
         ];
         let titles = vec!["Title 1".to_string(), "Title 2".to_string()];
-        let embeddings = document_encoder.encode(&texts, &titles, "cls");
+        let embeddings = document_encoder.encode(&texts, &titles, "cls")?;
 
         let bert_output_text1: Vec<f32> = vec![
             0.12826118,
@@ -46,7 +45,7 @@ mod tests {
             .map(|&x| round_to_decimal_places(x, 2))
             .collect();
 
-        let embeddings = embeddings.as_ref().unwrap().to_vec();
+        let embeddings = embeddings.squeeze(0)?.to_vec1::<f32>()?;
 
         let bert_ground_truth_1: Vec<f32> = embeddings[0..10]
             .iter()
@@ -81,23 +80,24 @@ mod tests {
         assert_eq!(embeddings.len(), 1536);
         let duration = start.elapsed();
         println!("Time elapsed in expensive_function() is: {:?}", duration);
+
+        Ok(())
     }
 
     #[test]
-    fn test_mdpr_document_encoder_cls_pooling() {
+    fn test_mdpr_document_encoder_cls_pooling() -> anyhow::Result<()> {
         let model_name = "castorini/mdpr-tied-pft-msmarco";
-        let tokenizer_name = None;
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, tokenizer_name, false, false);
+            AutoDocumentEncoder::new(model_name, false, false);
 
         let texts = vec![
             "Hello, I am a sentence!".to_string(),
             "And another sentence.".to_string(),
         ];
         let titles = vec!["Title 1".to_string(), "Title 2".to_string()];
-        let embeddings = document_encoder.encode(&texts, &titles, "cls");
+        let embeddings = document_encoder.encode(&texts, &titles, "cls")?;
 
-        let embeddings = embeddings.as_ref().unwrap().to_vec();
+        let embeddings = embeddings.squeeze(0)?.to_vec1::<f32>()?;
 
         let bert_output_text1: Vec<f32> = vec![
             0.12216599,
@@ -148,10 +148,12 @@ mod tests {
         assert_eq!(bert_ground_truth_1, bert_output_text1);
         assert_eq!(bert_ground_truth_2, bert_output_text2);
         assert_eq!(embeddings.len(), 1536);
+
+        Ok(())
     }
 
     #[test]
-    fn test_json_representation_writer() {
+    fn test_json_representation_writer() -> anyhow::Result<()> {
         let path = "test";
         let mut writer = JsonlRepresentationWriter::new(path, 3);
         let _ = writer.open_file();
@@ -174,10 +176,12 @@ mod tests {
 
         let mut embeddings: Vec<f32> = vec![0.1, 0.2, 0.3, 0.1, 0.2, 0.3];
         let _ = writer.write(&batch_info, &mut embeddings);
+
+        Ok(())
     }
 
     #[test]
-    fn test_faiss_representation_writer() {
+    fn test_faiss_representation_writer() -> anyhow::Result<()> {
         let path = "test";
         let mut writer = FaissRepresentationWriter::new(path, 3);
         let _ = writer.init_index(3, "Flat");
@@ -207,10 +211,12 @@ mod tests {
 
         assert_eq!(writer.index.is_trained(), true);
         assert_eq!(writer.index.ntotal(), 2);
+
+        Ok(())
     }
 
     #[test]
-    fn test_jsonl_collection_iterator() {
+    fn test_jsonl_collection_iterator() -> anyhow::Result<()> {
         let path = "tests/test_files".to_string();
         let fields: Vec<String> =
             vec!["docid".to_string(), "text".to_string(), "title".to_string()];
@@ -227,5 +233,7 @@ mod tests {
             iterator.iter().next().unwrap()["title"][0],
             String::from("Introduction")
         );
+
+        Ok(())
     }
 }

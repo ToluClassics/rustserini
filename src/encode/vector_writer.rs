@@ -349,8 +349,8 @@ impl RepresentationWriter for FaissRepresentationWriter {
         }
 
         Self {
-            dir_path: dir_path,
-            dimension: dimension,
+            dir_path,
+            dimension,
             ..Default::default()
         }
     }

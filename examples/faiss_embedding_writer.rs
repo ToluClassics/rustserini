@@ -80,7 +80,7 @@ struct Args {
     embedding_dim: u32,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let start = Instant::now();
     let args = Args::parse();
 
@@ -99,7 +99,6 @@ fn main() {
 
     let encoder: AutoDocumentEncoder = AutoDocumentEncoder::new(
         &args.encoder,
-        Some(&args.tokenizer),
         lowercase,
         strip_accents,
     );
@@ -114,12 +113,9 @@ fn main() {
         let batch_title: Vec<String> = batch["title"].to_vec();
         let batch_id: Vec<String> = batch["id"].to_vec();
 
-        let embeddings = &encoder.encode(&batch_text, &batch_title, "cls");
+        let embeddings = &encoder.encode(&batch_text, &batch_title, "cls")?;
 
-        let mut embeddings: Vec<f32> = match embeddings {
-            Ok(embeddings) => embeddings.to_vec(),
-            Err(_) => vec![],
-        };
+        let mut embeddings: Vec<f32> = embeddings.flatten_all()?.to_vec1::<f32>()?;
 
         batch_info.insert("text", batch_text);
         batch_info.insert("title", batch_title);
@@ -138,4 +134,6 @@ fn main() {
 
     let duration = start.elapsed();
     println!("Time elapsed in expensive_function() is: {:?}", duration);
+
+    Ok(())
 }

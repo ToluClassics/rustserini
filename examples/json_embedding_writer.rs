@@ -86,7 +86,7 @@ fn sanitize_string(s: &str) -> String {
     s.replace("\"", "").replace("\\", "")
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let start = Instant::now();
     let args = Args::parse();
 
@@ -106,7 +106,6 @@ fn main() {
 
     let encoder = AutoDocumentEncoder::new(
         &args.encoder,
-        Some(&args.tokenizer),
         lowercase,
         strip_accents,
     );
@@ -119,9 +118,9 @@ fn main() {
         let batch_title: Vec<String> = batch["title"].iter().map(|x| sanitize_string(x)).collect();
         let batch_id: Vec<String> = batch["id"].iter().map(|x| sanitize_string(x)).collect();
 
-        let embeddings = &encoder.encode(&batch_text, &batch_title, "cls");
+        let embeddings = &encoder.encode(&batch_text, &batch_title, "cls")?;
 
-        let mut embeddings: Vec<f32> = embeddings.as_ref().unwrap().to_vec();
+        let mut embeddings: Vec<f32> = embeddings.squeeze(0)?.to_vec1::<f32>()?;
 
         batch_info.insert("text", batch_text);
         batch_info.insert("title", batch_title);
@@ -135,4 +134,6 @@ fn main() {
 
     let duration = start.elapsed();
     println!("Time elapsed in expensive_function() is: {:?}", duration);
+
+    Ok(())
 }

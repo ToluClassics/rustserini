@@ -1,5 +1,6 @@
 extern crate serde_json;
-use rust_bert::RustBertError;
+use anyhow::{Error, Result};
+use candle_core::Tensor;
 use std::collections::HashMap;
 
 /// A base trait for document encoders
@@ -7,7 +8,6 @@ pub trait DocumentEncoder {
     // instantiating a new DocumentEncoder instance
     fn new(
         model_name: &str,
-        tokenizer_name: Option<&str>,
         lowercase: bool,
         strip_accents: bool,
     ) -> Self;
@@ -18,7 +18,7 @@ pub trait DocumentEncoder {
         texts: &Vec<String>,
         titles: &Vec<String>,
         pooler_type: &str,
-    ) -> Result<Vec<f32>, RustBertError>;
+    ) -> Result<Tensor, Error>;
 }
 
 pub trait RepresentationWriter {
