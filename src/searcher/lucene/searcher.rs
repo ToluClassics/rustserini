@@ -24,13 +24,13 @@ pub enum LuceneQuery {
 
 impl LuceneSearcher {
     pub fn new(
-        index_dir: String,
+        index_dir: impl Into<String>,
         prebuilt_index_name: Option<String>,
     ) -> Result<Self, anyhow::Error> {
         let entry = ClasspathEntry::new("src/resources/anserini-0.20.1-SNAPSHOT-fatjar.jar");
         let jvm_object: Jvm = JvmBuilder::new().classpath_entry(entry).build()?;
 
-        let index_dir = InvocationArg::try_from(index_dir)?;
+        let index_dir = InvocationArg::try_from(index_dir.into())?;
 
         let searcher =
             jvm_object.create_instance("io.anserini.search.SimpleSearcher", &[index_dir])?;
