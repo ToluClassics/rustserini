@@ -88,7 +88,9 @@ impl FaissSearcher {
         Search a query and return the top k results
          */
         let query = QueryType::Query { query };
-        let emb_q = self.query_encoder.encode(query, "cls");
+        let emb_q = self.query_encoder.encode(query, "cls")?;
+        let emb_q = emb_q.squeeze(0)?.to_vec1::<f32>()?;
+
 
         assert_eq!(&emb_q.len(), &self.dimension);
         let result = self.index.search(&emb_q, k).unwrap();
@@ -126,7 +128,8 @@ impl FaissSearcher {
         Search a batch of queries and return the top k results
          */
         let queries = QueryType::Queries { query: queries };
-        let emb_q = self.query_encoder.encode(queries, "cls");
+        let emb_q = self.query_encoder.encode(queries, "cls")?;
+        let emb_q = emb_q.flatten_all()?.to_vec1::<f32>()?;
 
         let embedding_length = self.dimension * &q_ids.len();
         assert_eq!(&emb_q.len(), &embedding_length);

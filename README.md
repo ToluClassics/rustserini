@@ -18,8 +18,8 @@ To install Rusterini, you need to have Rust and Cargo installed on your system. 
 Once Rust is installed, you can install Rusterini by running the following command:
 
 - Development Install
-    - This repo depends on the Rust bindings of FAISS in C++. Thus we have to install Faiss using CMAKE by following the [instructions here](https://github.com/Enet4/faiss/blob/c_api_head/INSTALL.md#step-1-invoking-cmake) or [Here](https://github.com/Enet4/faiss-rs#installing-with-dynamic-linking)
-    - To Interface with huggingface models for generating sentence embeddings, this project depends on [rust_bert](https://github.com/guillaume-be/rust-bert) which inturn depends on the C++ Libtorch API. To Install, [follow the instruction here](https://github.com/Enet4/faiss-rs#installing-with-dynamic-linking)
+    - This repo depends on the Rust bindings of FAISS in C++. Thus we have to install Faiss using CMAKE by following the [instructions here](https://github.com/Enet4/faiss/blob/c_api_head/INSTALL.md#step-1-invoking-cmake) or [Here](https://github.com/yexiangyu/faiss-next/tree/main)
+    - To Interface with huggingface models for generating sentence embeddings, this project depends on [Candle](https://github.com/huggingface/candle).
     - Clone the repo and experiment away!
 
 

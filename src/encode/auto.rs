@@ -1,117 +1,129 @@
-use crate::encode::base::DocumentEncoder;
-use rust_bert::bert::{BertConfig, BertForSentenceEmbeddings};
-use rust_bert::resources::{RemoteResource, ResourceProvider};
-use rust_bert::Config;
-use rust_bert::RustBertError;
-use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
-use tch::{nn, no_grad, Device, Kind, Tensor};
+use std::vec;
 
-const BERT_MODELS: [&str; 3] = ["bert-base-uncased", "bert-base-cased", "bert-large-uncased"];
+use crate::encode::base::DocumentEncoder;
+
+use anyhow::{anyhow, Error as E, Result};
+use hf_hub::{api::sync::Api, Cache, Repo, RepoType};
+use candle_core::{DType, Device, Tensor};
+use candle_nn::VarBuilder;
+use candle_transformers::models::bert::{BertModel,BertForMaskedLM, Config};
+use tokenizers::{PaddingParams, Tokenizer};
+
+pub const FLOATING_DTYPE: DType = DType::F32;
+pub const LONG_DTYPE: DType = DType::I64;
+
+pub enum Model {
+    BertModel {model: BertModel},
+    BertForMaskedLM {model: BertForMaskedLM},
+}
+
+pub enum OutputModelType{
+    BertModel,
+    BertForMaskedLM,
+}
 
 /// An AutoDocumentEncoder for encoding documents with BERT-style  encoding models
 pub struct AutoDocumentEncoder {
-    model: BertForSentenceEmbeddings,
-    tokenizer: BertTokenizer,
+    model: Model,
+    tokenizer: Tokenizer,
+    device: Device,
 }
 
-pub fn fetch_bert_style_config(model_name: &str) -> BertConfig {
-    /*
-    Download and instantiate Bert Configuration using the  model name
-    */
-    let remote_config_path = format!(
-        "https://huggingface.co/{model_name}/resolve/main/config.json",
-        model_name = model_name
-    );
-    let alias = format!("{model_name}/model", model_name = model_name);
-    let config_tuple = (alias.as_str(), remote_config_path.as_str());
-    let config_resource = RemoteResource::from_pretrained(config_tuple);
-    let config_path = config_resource.get_local_path().unwrap();
-    let config = BertConfig::from_file(config_path);
-    config
-}
 
-pub fn fetch_bert_style_vocab(
-    model_name: &str,
-    lowercase: bool,
-    strip_accents: bool,
-) -> BertTokenizer {
-    /*
-    Download and instantiate Bert style Tokenizers using the model name
-    */
-    let remote_vocab_path = format!(
-        "https://huggingface.co/{model_name}/resolve/main/vocab.txt",
-        model_name = model_name
-    );
-    let alias = format!("{model_name}/model", model_name = model_name);
-    let vocab_tuple = (alias.as_str(), remote_vocab_path.as_str());
-    let vocab_resource = RemoteResource::from_pretrained(vocab_tuple);
-    let vocab_path = vocab_resource.get_local_path().unwrap();
+pub fn build_roberta_model_and_tokenizer(model_name_or_path: impl Into<String>, offline: bool, model_type: &str, revision: &str) -> Result<(Model, Tokenizer)> {
+    let device = Device::Cpu;
+    let (model_id, revision) = (model_name_or_path.into(), revision.into());
+    let repo = Repo::with_revision(model_id, RepoType::Model, revision);
 
-    let vocab = BertTokenizer::from_file(vocab_path.to_str().unwrap(), lowercase, strip_accents)
-        .expect("Couldn't build tokenizer");
-    vocab
-}
-
-pub fn fetch_bert_style_model(model_name: &str, config: BertConfig) -> BertForSentenceEmbeddings {
-    /*
-    Download and instantiate Bert style models using the model name
-    */
-    let remote_model_path = format!(
-        "https://huggingface.co/{model_name}/resolve/main/rust_model.ot",
-        model_name = &model_name
-    );
-    let alias = format!("{model_name}/model", model_name = model_name);
-    let model_tuple = (alias.as_str(), remote_model_path.as_str());
-    let model_resource = RemoteResource::from_pretrained(model_tuple);
-    let model_path = model_resource.get_local_path().unwrap();
-    let device = Device::cuda_if_available();
-    println!("device: {:?}", device);
-    let mut vs = nn::VarStore::new(device);
-    let model: BertForSentenceEmbeddings;
-
-    if BERT_MODELS.contains(&model_name) {
-        model = BertForSentenceEmbeddings::new(&vs.root() / "bert", &config);
+    let (config_filename, tokenizer_filename, weights_filename) = if offline {
+        let cache = Cache::default().repo(repo);
+        (
+            cache
+                .get("config.json")
+                .ok_or(anyhow!("Missing config file in cache"))?,
+            cache
+                .get("tokenizer.json")
+                .ok_or(anyhow!("Missing tokenizer file in cache"))?,
+            cache
+                .get("model.safetensors")
+                .ok_or(anyhow!("Missing weights file in cache"))?,
+        )
     } else {
-        model = BertForSentenceEmbeddings::new(&vs.root(), &config);
-    }
-    vs.load(model_path).expect("Couldn't load model weights");
+        let api = Api::new()?;
+        let api = api.repo(repo);
+        (
+            api.get("config.json")?,
+            api.get("tokenizer.json")?,
+            api.get("model.safetensors")?,
+        )
+    };
 
-    model
+    println!("config_filename: {}", config_filename.display());
+    println!("tokenizer_filename: {}", tokenizer_filename.display());
+    println!("weights_filename: {}", weights_filename.display());
+
+
+    let config = std::fs::read_to_string(config_filename)?;
+    let mut tokenizer = Tokenizer::from_file(tokenizer_filename).map_err(E::msg)?;
+
+    if let Some(pp) = tokenizer.get_padding_mut() {
+        pp.strategy = tokenizers::PaddingStrategy::BatchLongest
+    } else {
+        let pp = PaddingParams {
+            strategy: tokenizers::PaddingStrategy::BatchLongest,
+            ..Default::default()
+        };
+        tokenizer.with_padding(Some(pp));
+    }
+
+    let vb =
+        unsafe { VarBuilder::from_mmaped_safetensors(&[weights_filename], FLOATING_DTYPE, &device)? };
+
+    let model = match model_type {
+        "BertModel" => {
+            let config: Config = serde_json::from_str(&config)?;
+            let model = BertModel::load(vb, &config)?;
+            Model::BertModel {model}
+        }
+        "BertForMaskedLM" => {
+            let config: Config = serde_json::from_str(&config)?;
+            let model = BertForMaskedLM::load(vb, &config)?;
+            Model::BertForMaskedLM {model}
+        }
+        _ => panic!("Invalid model_type")
+    };
+
+    Ok((model, tokenizer))
 }
 
-pub fn mean_pooling(last_hidden_state: Tensor, attention_mask: Tensor) -> Tensor {
+pub fn normalize_l2(v: &Tensor) -> Result<Tensor> {
+    Ok(v.broadcast_div(&v.sqr()?.sum_keepdim(1)?.sqrt()?)?)
+}
+
+pub fn mean_pooling(last_hidden_state: Tensor, normalize_embeddings: bool) -> Result<Tensor, E> {
     /*
     Compute mean pooling of BERT hidden states
     */
-    let mut output_vectors = Vec::new();
-    let input_mask_expanded = attention_mask.unsqueeze(-1).expand_as(&last_hidden_state);
-    let sum_embeddings = (last_hidden_state * &input_mask_expanded).sum_dim_intlist(
-        [1].as_slice(),
-        false,
-        Kind::Float,
-    );
-    let sum_mask = input_mask_expanded.sum_dim_intlist([1].as_slice(), false, Kind::Float);
-    let sum_mask = sum_mask.clamp_min(1e-9);
+    let (_n_sentence, n_tokens, _hidden_size) = last_hidden_state.dims3()?;
+    let embeddings = (last_hidden_state.sum(1)? / (n_tokens as f64))?;
+    let embeddings = if normalize_embeddings {
+        normalize_l2(&embeddings)?
+    } else {
+        embeddings
+    };
 
-    output_vectors.push(&sum_embeddings / &sum_mask);
-
-    Tensor::cat(&output_vectors, 1)
+    Ok(embeddings)
 }
 
 impl DocumentEncoder for AutoDocumentEncoder {
     // instantiating a new AutoDocumentEncoder instance
     fn new(
         model_name: &str,
-        _tokenizer_name: Option<&str>,
-        lowercase: bool,
-        strip_accents: bool,
+        revision: &str,
     ) -> AutoDocumentEncoder {
-        let _device = Device::cuda_if_available();
-        let config = fetch_bert_style_config(&model_name);
-        let model = fetch_bert_style_model(&model_name, config);
-
-        let tokenizer = fetch_bert_style_vocab(&model_name, lowercase, strip_accents);
-        Self { model, tokenizer }
+        let device = Device::Cpu;
+        let (model, tokenizer) = build_roberta_model_and_tokenizer(model_name, false, "BertModel", revision).unwrap();
+        Self { model, tokenizer, device }
     }
 
     fn encode(
@@ -119,7 +131,7 @@ impl DocumentEncoder for AutoDocumentEncoder {
         texts: &Vec<String>,
         titles: &Vec<String>,
         pooler_type: &str,
-    ) -> Result<Vec<f32>, RustBertError> {
+    ) -> Result<Tensor, E> {
         /*
         Encode a list of texts and/or titles into a list of vectors
         */
@@ -133,84 +145,57 @@ impl DocumentEncoder for AutoDocumentEncoder {
             texts.to_owned()
         };
 
-        let tokenized_input =
-            self.tokenizer
-                .encode_list(&texts, 128, &TruncationStrategy::LongestFirst, 0);
+        let tokens = self.tokenizer
+            .encode_batch(texts, true, )
+            .map_err(E::msg)?;
 
-        let max_len = 128;
-
-        let pad_token_id = 0;
-
-        let tokens_ids: Vec<Vec<i64>> = tokenized_input
-            .into_iter()
-            .map(|input| {
-                let mut ids = input.token_ids;
-                ids.resize(max_len, pad_token_id);
-                ids
-            })
-            .collect();
-
-        let tokens_masks = tokens_ids
+        let token_ids = tokens
             .iter()
-            .map(|input| {
-                Tensor::of_slice(
-                    &input
-                        .iter()
-                        .map(|&e| i64::from(e != pad_token_id))
-                        .collect::<Vec<_>>(),
-                )
+            .map(|tokens| {
+                let tokens = tokens.get_ids().to_vec();
+                Ok(Tensor::new(tokens.as_slice(), &self.device)?)
             })
-            .collect::<Vec<_>>();
-
-        let tokens_ids = tokens_ids
-            .into_iter()
-            .map(|input| Tensor::of_slice(&(input)))
-            .collect::<Vec<_>>();
-
-        let tokens_ids = Tensor::stack(&tokens_ids, 0);
-        let tokens_masks = Tensor::stack(&tokens_masks, 0);
-        let output: Tensor;
-
-        if pooler_type == "mean" {
-            let hidden_state: Tensor = no_grad(|| {
-                self.model
-                    .forward_t(
-                        Some(&tokens_ids),
-                        Some(&tokens_masks),
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
-                    .unwrap()
+            .collect::<Result<Vec<_>>>()?;
+        let attention_mask = tokens
+            .iter()
+            .map(|tokens| {
+                let tokens = tokens.get_attention_mask().to_vec();
+                Ok(Tensor::new(tokens.as_slice(), &self.device)?)
             })
-            .hidden_state;
+            .collect::<Result<Vec<_>>>()?;
+            
+        let token_ids = Tensor::stack(&token_ids, 0)?;
+        let token_type_ids = token_ids.zeros_like()?;
+        let attention_mask = Tensor::stack(&attention_mask, 0)?;
 
-            output = mean_pooling(hidden_state, tokens_masks);
+        let hidden_state: Tensor = match &self.model {
+            Model::BertModel {model} => {
+                let hidden_state: Tensor = model.forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
+                hidden_state
+            },
+            Model::BertForMaskedLM {model} => {
+                let hidden_state: Tensor = model.forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
+                hidden_state
+            },            
+        };
+
+        let embeddings: Tensor = if pooler_type == "mean" {
+            mean_pooling(hidden_state, false)?
+            
         } else if pooler_type == "cls" {
-            output = no_grad(|| {
-                self.model
-                    .forward_t(
-                        Some(&tokens_ids),
-                        Some(&tokens_masks),
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
-                    .unwrap()
-            })
-            .hidden_state
-            .select(1, 0);
+            
+            let (_n_sentence, _n_tokens, _hidden_size) = hidden_state.dims3()?;
+
+            let mut out_embeding = vec![];
+            for i in 0.._n_sentence{
+
+                let embeding = hidden_state.get(i)?.get(0)?;
+                out_embeding.push(embeding);
+            }
+            Tensor::stack(&out_embeding, 0)?
         } else {
             panic!("pooler_type must be either mean or cls");
-        }
-
-        let embeddings: Vec<f32> = Vec::from(output);
+        };
 
         Ok(embeddings)
     }

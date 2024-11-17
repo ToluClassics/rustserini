@@ -1,10 +1,11 @@
 use crate::encode::auto::{
-    fetch_bert_style_config, fetch_bert_style_model, fetch_bert_style_vocab, mean_pooling,
+    build_roberta_model_and_tokenizer, mean_pooling, Model
 };
-use rust_bert::bert::BertForSentenceEmbeddings;
-use rust_tokenizers::tokenizer::{BertTokenizer, Tokenizer, TruncationStrategy};
 
-use tch::{no_grad, Device, Tensor};
+use candle_core::{Device, Tensor};
+use tokenizers::Tokenizer;
+use anyhow::{Error as E, Result};
+
 
 pub enum QueryType {
     Query { query: String },
@@ -16,118 +17,87 @@ pub trait QueryEncoder {
     // instantiating a new DocumentEncoder instance
     fn new(
         model_name: &str,
-        tokenizer_name: Option<&str>,
-        lowercase: bool,
-        strip_accents: bool,
+        revision: &str,
     ) -> Self;
 
     // Encode a document or a set of documents into a vector of floats
-    fn encode(&self, query: QueryType, pooler_type: &str) -> Vec<f32>;
+    fn encode(&self, query: QueryType, pooler_type: &str) -> Result<Tensor, E>;
 }
 
 pub struct AutoQueryEncoder {
-    model: BertForSentenceEmbeddings,
-    tokenizer: BertTokenizer,
+    model: Model,
+    tokenizer: Tokenizer,
+    device: Device
 }
 
 impl QueryEncoder for AutoQueryEncoder {
     fn new(
         model_name: &str,
-        _tokenizer_name: Option<&str>,
-        lowercase: bool,
-        strip_accents: bool,
+        revision: &str,
     ) -> Self {
-        let _device = Device::cuda_if_available();
-        let config = fetch_bert_style_config(&model_name);
-        let model = fetch_bert_style_model(&model_name, config);
-
-        let tokenizer = fetch_bert_style_vocab(&model_name, lowercase, strip_accents);
-        Self { model, tokenizer }
+        let device = Device::Cpu;
+        let (model, tokenizer) = build_roberta_model_and_tokenizer(model_name, false, "BertModel", revision).unwrap();
+        Self { model, tokenizer, device }
     }
 
-    fn encode(&self, queries: QueryType, pooler_type: &str) -> Vec<f32> {
+    fn encode(&self, queries: QueryType, pooler_type: &str) -> Result<Tensor, E> {
         let texts = match queries {
             QueryType::Query { query } => vec![query],
             QueryType::Queries { query } => query,
         };
 
-        let tokenized_input =
-            self.tokenizer
-                .encode_list(&texts, 128, &TruncationStrategy::LongestFirst, 0);
 
-        let max_len = 128;
-
-        let pad_token_id = 0;
-        let tokens_ids = tokenized_input
-            .into_iter()
-            .map(|input| {
-                let mut token_ids = input.token_ids;
-                token_ids.extend(vec![pad_token_id; max_len - token_ids.len()]);
-                token_ids
-            })
-            .collect::<Vec<_>>();
-
-        let tokens_masks = tokens_ids
+        let tokens = self.tokenizer
+            .encode_batch(texts, true)
+            .map_err(E::msg)?;
+        let token_ids = tokens
             .iter()
-            .map(|input| {
-                Tensor::of_slice(
-                    &input
-                        .iter()
-                        .map(|&e| i64::from(e != pad_token_id))
-                        .collect::<Vec<_>>(),
-                )
+            .map(|tokens| {
+                let tokens = tokens.get_ids().to_vec();
+                Ok(Tensor::new(tokens.as_slice(), &self.device)?)
             })
-            .collect::<Vec<_>>();
-
-        let tokens_ids = tokens_ids
-            .into_iter()
-            .map(|input| Tensor::of_slice(&(input)))
-            .collect::<Vec<_>>();
-
-        let tokens_ids = Tensor::stack(&tokens_ids, 0);
-        let tokens_masks = Tensor::stack(&tokens_masks, 0);
-        let output: Tensor;
-
-        if pooler_type == "mean" {
-            let hidden_state: Tensor = no_grad(|| {
-                self.model
-                    .forward_t(
-                        Some(&tokens_ids),
-                        Some(&tokens_masks),
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
-                    .unwrap()
+            .collect::<Result<Vec<_>>>()?;
+        let attention_mask = tokens
+            .iter()
+            .map(|tokens| {
+                let tokens = tokens.get_attention_mask().to_vec();
+                Ok(Tensor::new(tokens.as_slice(), &self.device)?)
             })
-            .hidden_state;
+            .collect::<Result<Vec<_>>>()?;
 
-            output = mean_pooling(hidden_state, tokens_masks);
+        let token_ids = Tensor::stack(&token_ids, 0)?;
+        let token_type_ids = token_ids.zeros_like()?;
+        let attention_mask  = Tensor::stack(&attention_mask, 0)?;
+
+        let hidden_state: Tensor = match &self.model {
+            Model::BertModel {model} => {
+                let hidden_state: Tensor = model.forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
+                hidden_state
+            },
+            Model::BertForMaskedLM {model} => {
+                let hidden_state: Tensor = model.forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
+                hidden_state
+            },            
+        };
+
+        let embeddings: Tensor = if pooler_type == "mean" {
+            mean_pooling(hidden_state, false)?
+            
         } else if pooler_type == "cls" {
-            output = no_grad(|| {
-                self.model
-                    .forward_t(
-                        Some(&tokens_ids),
-                        Some(&tokens_masks),
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        false,
-                    )
-                    .unwrap()
-            })
-            .hidden_state
-            .select(1, 0);
+            
+            let (_n_sentence, _n_tokens, _hidden_size) = hidden_state.dims3()?;
+
+            let mut out_embeding = vec![];
+            for i in 0.._n_sentence{
+
+                let embeding = hidden_state.get(i)?.get(0)?;
+                out_embeding.push(embeding);
+            }
+            Tensor::stack(&out_embeding, 0)?
         } else {
             panic!("pooler_type must be either mean or cls");
-        }
+        };
 
-        let embeddings: Vec<f32> = Vec::from(output);
-        return embeddings;
+        Ok(embeddings)
     }
 }
