@@ -27,7 +27,7 @@ impl LuceneSearcher {
         index_dir: String,
         prebuilt_index_name: Option<String>,
     ) -> Result<Self, anyhow::Error> {
-        let entry = ClasspathEntry::new("src/resources/anserini-0.20.1-SNAPSHOT-fatjar.jar");
+        let entry = ClasspathEntry::new("/Users/odunayoogundepo/Desktop/anserini/target/anserini-0.35.1-SNAPSHOT.jar");
         let jvm_object: Jvm = JvmBuilder::new().classpath_entry(entry).build()?;
 
         let index_dir = InvocationArg::try_from(index_dir)?;
@@ -35,7 +35,7 @@ impl LuceneSearcher {
         let searcher =
             jvm_object.create_instance("io.anserini.search.SimpleSearcher", &[index_dir])?;
 
-        let num_docs = jvm_object.invoke(&searcher, "get_total_num_docs", &Vec::new())?;
+        let num_docs = jvm_object.invoke(&searcher, "get_total_num_docs", InvocationArg::empty())?;
         let num_docs: usize = jvm_object.to_rust(num_docs)?;
 
         Ok(Self {

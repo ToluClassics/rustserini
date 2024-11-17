@@ -10,6 +10,7 @@ pub trait DocumentEncoder {
         model_name: &str,
         lowercase: bool,
         strip_accents: bool,
+        revision: &str,
     ) -> Self;
 
     // Encode a document or a set of documents into a vector of floats

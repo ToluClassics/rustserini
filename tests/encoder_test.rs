@@ -16,8 +16,9 @@ mod tests {
     #[test]
     fn test_auto_document_encoder_cls_pooling() -> anyhow::Result<()> {
         let model_name = "bert-base-uncased";
+        let revision = "refs/pr/70";
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, true, true);
+            AutoDocumentEncoder::new(model_name, true, true, revision);
         let start = Instant::now();
 
         let texts = vec![
@@ -26,6 +27,9 @@ mod tests {
         ];
         let titles = vec!["Title 1".to_string(), "Title 2".to_string()];
         let embeddings = document_encoder.encode(&texts, &titles, "cls")?;
+
+        let embeddings = embeddings.flatten_all()?;
+        let embeddings = embeddings.to_vec1()?;
 
         let bert_output_text1: Vec<f32> = vec![
             0.12826118,
@@ -45,7 +49,6 @@ mod tests {
             .map(|&x| round_to_decimal_places(x, 2))
             .collect();
 
-        let embeddings = embeddings.squeeze(0)?.to_vec1::<f32>()?;
 
         let bert_ground_truth_1: Vec<f32> = embeddings[0..10]
             .iter()
@@ -86,54 +89,56 @@ mod tests {
 
     #[test]
     fn test_mdpr_document_encoder_cls_pooling() -> anyhow::Result<()> {
-        let model_name = "castorini/mdpr-tied-pft-msmarco";
+        let model_name = "castorini/mdpr-tied-pft-msmarco-ft-miracl-zh";
+        let revision = "refs/pr/1";
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, false, false);
+            AutoDocumentEncoder::new(model_name, false, false, revision);
 
         let texts = vec![
             "Hello, I am a sentence!".to_string(),
             "And another sentence.".to_string(),
         ];
-        let titles = vec!["Title 1".to_string(), "Title 2".to_string()];
+        let titles = vec![
+            "Title 1".to_string(),
+            "Title 2".to_string()
+            ];
         let embeddings = document_encoder.encode(&texts, &titles, "cls")?;
 
-        let embeddings = embeddings.squeeze(0)?.to_vec1::<f32>()?;
+        let embeddings = embeddings.flatten_all()?;
+        let embeddings = embeddings.to_vec1()?;
 
         let bert_output_text1: Vec<f32> = vec![
-            0.12216599,
-            0.08989798,
-            -0.08053765,
-            0.05704468,
-            0.08400676,
-            0.21839038,
-            -0.13027243,
-            -0.09203665,
-            0.0788867,
-            0.5792808,
-        ];
+            0.0935,
+            0.1650,
+            -0.2026,
+            0.0945,
+            0.0554,
+            0.1779,
+            -0.1653,
+            -0.1215,
+            0.0335,
+            0.5885];
 
         let bert_output_text1: Vec<f32> = bert_output_text1
             .iter()
-            .map(|&x| round_to_decimal_places(x, 2))
+            .map(|&x| round_to_decimal_places(x, 4))
             .collect();
 
         let bert_ground_truth_1: Vec<f32> = embeddings[0..10]
             .iter()
-            .map(|&x| round_to_decimal_places(x, 2))
+            .map(|&x| round_to_decimal_places(x, 4))
             .collect();
 
-        let bert_output_text2: Vec<f32> = vec![
-            -0.10274079,
-            -0.18447621,
-            -0.06352538,
-            0.4051933,
-            0.3783425,
-            0.13372363,
-            -0.19449979,
-            -0.16525947,
-            -0.0066017,
-            0.24688494,
-        ];
+        let bert_output_text2: Vec<f32> = vec![-0.0892,
+            -0.0782,
+            -0.1189,
+            0.3578,
+            0.2832,
+            0.1035,
+            -0.2080,
+            -0.1795,
+            -0.0405,
+            0.2710];
 
         let bert_output_text2: Vec<f32> = bert_output_text2
             .iter()
@@ -186,7 +191,7 @@ mod tests {
         let mut writer = FaissRepresentationWriter::new(path, 3);
         let _ = writer.init_index(3, "Flat");
         let _ = writer.open_file();
-
+    
         let mut batch_info = HashMap::new();
         batch_info.insert("id", vec!["0".to_string(), "1".to_string()]);
         batch_info.insert(
@@ -203,15 +208,15 @@ mod tests {
                 "Hello, I am a sentences!".to_string(),
             ],
         );
-
+    
         let mut embeddings: Vec<f32> = vec![0.1, 0.2, 0.3, 0.1, 0.2, 0.3];
         let _ = writer.write(&batch_info, &mut embeddings);
-
+    
         let _ = writer.save_index();
-
+    
         assert_eq!(writer.index.is_trained(), true);
         assert_eq!(writer.index.ntotal(), 2);
-
+    
         Ok(())
     }
 

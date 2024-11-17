@@ -57,6 +57,10 @@ struct Args {
     #[arg(long)]
     encoder: String,
 
+    /// Encoder Revision
+    #[arg(long, default_value = "main")]
+    revision: String,
+
     /// Tokenizer name or path
     #[arg(long)]
     tokenizer: String,
@@ -108,6 +112,7 @@ fn main() -> anyhow::Result<()> {
         &args.encoder,
         lowercase,
         strip_accents,
+        &args.revision,
     );
 
     let mut counter: usize = 0;

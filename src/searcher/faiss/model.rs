@@ -3,10 +3,9 @@ use crate::encode::auto::{
 };
 
 use candle_core::{Device, Tensor, IndexOp};
+use candle_transformers::models::stable_diffusion::attention;
 use tokenizers::Tokenizer;
 use anyhow::{Error as E, Result};
-
-
 
 
 pub enum QueryType {
@@ -21,6 +20,7 @@ pub trait QueryEncoder {
         model_name: &str,
         lowercase: bool,
         strip_accents: bool,
+        revision: &str,
     ) -> Self;
 
     // Encode a document or a set of documents into a vector of floats
@@ -38,9 +38,10 @@ impl QueryEncoder for AutoQueryEncoder {
         model_name: &str,
         lowercase: bool,
         strip_accents: bool,
+        revision: &str,
     ) -> Self {
         let device = Device::Cpu;
-        let (model, tokenizer) = build_roberta_model_and_tokenizer(model_name, false, "BertModel").unwrap();
+        let (model, tokenizer) = build_roberta_model_and_tokenizer(model_name, false, "BertModel", revision).unwrap();
         Self { model, tokenizer, device }
     }
 
@@ -63,25 +64,46 @@ impl QueryEncoder for AutoQueryEncoder {
                 Ok(Tensor::new(tokens.as_slice(), &self.device)?)
             })
             .collect::<Result<Vec<_>>>()?;
+        let attention_mask = tokens
+            .iter()
+            .map(|tokens| {
+                let tokens = tokens.get_attention_mask().to_vec();
+                Ok(Tensor::new(tokens.as_slice(), &self.device)?)
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         let token_ids = Tensor::stack(&token_ids, 0)?;
         let token_type_ids = token_ids.zeros_like()?;
+        let attention_mask  = Tensor::stack(&attention_mask, 0)?;
 
-        let mut embeddings: Tensor;
-        let model = match &self.model {
-            Model::BertModel {model} => model,
+        let hidden_state: Tensor = match &self.model {
+            Model::BertModel {model} => {
+                let hidden_state: Tensor = model.forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
+                hidden_state
+            },
+            Model::BertForMaskedLM {model} => {
+                let hidden_state: Tensor = model.forward(&token_ids, &token_type_ids, Some(&attention_mask))?;
+                hidden_state
+            },            
         };
 
-        if pooler_type == "mean" {
-    
-            let hidden_state: Tensor = model.forward(&token_ids, &token_type_ids)?;
-            embeddings = mean_pooling(hidden_state, false)?;
+        let embeddings: Tensor = if pooler_type == "mean" {
+            mean_pooling(hidden_state, false)?
+            
         } else if pooler_type == "cls" {
-            embeddings = model.forward(&token_ids, &token_type_ids)?;
-            embeddings = embeddings.i((.., 0))?
+            
+            let (_n_sentence, _n_tokens, _hidden_size) = hidden_state.dims3()?;
+
+            let mut out_embeding = vec![];
+            for i in 0.._n_sentence{
+
+                let embeding = hidden_state.get(i)?.get(0)?;
+                out_embeding.push(embeding);
+            }
+            Tensor::stack(&out_embeding, 0)?
         } else {
             panic!("pooler_type must be either mean or cls");
-        }
+        };
 
         Ok(embeddings)
     }
