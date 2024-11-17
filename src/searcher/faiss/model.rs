@@ -2,8 +2,7 @@ use crate::encode::auto::{
     build_roberta_model_and_tokenizer, mean_pooling, Model
 };
 
-use candle_core::{Device, Tensor, IndexOp};
-use candle_transformers::models::stable_diffusion::attention;
+use candle_core::{Device, Tensor};
 use tokenizers::Tokenizer;
 use anyhow::{Error as E, Result};
 
@@ -18,8 +17,6 @@ pub trait QueryEncoder {
     // instantiating a new DocumentEncoder instance
     fn new(
         model_name: &str,
-        lowercase: bool,
-        strip_accents: bool,
         revision: &str,
     ) -> Self;
 
@@ -36,8 +33,6 @@ pub struct AutoQueryEncoder {
 impl QueryEncoder for AutoQueryEncoder {
     fn new(
         model_name: &str,
-        lowercase: bool,
-        strip_accents: bool,
         revision: &str,
     ) -> Self {
         let device = Device::Cpu;
@@ -51,8 +46,6 @@ impl QueryEncoder for AutoQueryEncoder {
             QueryType::Queries { query } => query,
         };
 
-        let max_len = 128;
-        let pad_token_id = 0;
 
         let tokens = self.tokenizer
             .encode_batch(texts, true)

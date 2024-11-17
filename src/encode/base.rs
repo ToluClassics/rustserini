@@ -8,8 +8,6 @@ pub trait DocumentEncoder {
     // instantiating a new DocumentEncoder instance
     fn new(
         model_name: &str,
-        lowercase: bool,
-        strip_accents: bool,
         revision: &str,
     ) -> Self;
 

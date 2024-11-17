@@ -22,3 +22,4 @@ corpus/
 venv/
 .pytest_cache/
 *.jar
+.idea/

@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 pub struct LuceneSearcher {
     pub num_docs: usize,
-    jvm_object: Jvm,
+    jvm: Jvm,
     searcher: Instance,
     prebuilt_index_name: Option<String>,
 }
@@ -14,7 +14,6 @@ pub struct LuceneSearcherResult {
     pub docid: String,
     pub lucene_docid: i32,
     pub score: f32,
-    pub raw: String,
 }
 
 pub enum LuceneQuery {
@@ -27,20 +26,20 @@ impl LuceneSearcher {
         index_dir: String,
         prebuilt_index_name: Option<String>,
     ) -> Result<Self, anyhow::Error> {
-        let entry = ClasspathEntry::new("/Users/odunayoogundepo/Desktop/anserini/target/anserini-0.35.1-SNAPSHOT.jar");
-        let jvm_object: Jvm = JvmBuilder::new().classpath_entry(entry).build()?;
+        let entry = ClasspathEntry::new("resources/anserini-0.35.1-SNAPSHOT-fatjar.jar");
+        let jvm: Jvm = JvmBuilder::new().classpath_entry(entry).build()?;
 
         let index_dir = InvocationArg::try_from(index_dir)?;
 
         let searcher =
-            jvm_object.create_instance("io.anserini.search.SimpleSearcher", &[index_dir])?;
+        jvm.create_instance("io.anserini.search.SimpleSearcher", &[index_dir])?;
 
-        let num_docs = jvm_object.invoke(&searcher, "get_total_num_docs", InvocationArg::empty())?;
-        let num_docs: usize = jvm_object.to_rust(num_docs)?;
+        let num_docs = jvm.invoke(&searcher, "get_total_num_docs", InvocationArg::empty())?;
+        let num_docs: usize = jvm.to_rust(num_docs)?;
 
         Ok(Self {
             num_docs,
-            jvm_object,
+            jvm,
             searcher,
             prebuilt_index_name,
         })
@@ -49,7 +48,7 @@ impl LuceneSearcher {
     pub fn search(
         &self,
         q: LuceneQuery,
-        k: i8,
+        k: i32,
         _query_generator: Option<Instance>,
         fields: Option<HashMap<String, f32>>,
         _strip_segment_id: bool,
@@ -59,7 +58,7 @@ impl LuceneSearcher {
         let hits: Vec<LuceneSearcherResult>;
         match fields {
             Some(fields) => {
-                jfields = Some(self.jvm_object.java_map(
+                jfields = Some(self.jvm.java_map(
                     JavaClass::String,
                     JavaClass::Float,
                     fields,
@@ -77,17 +76,17 @@ impl LuceneSearcher {
                 let k = InvocationArg::try_from(k)?.into_primitive()?;
 
                 if Option::is_some(&jfields) {
-                    let results = self.jvm_object.invoke(
+                    let results = self.jvm.invoke(
                         &self.searcher,
                         "search_fields",
                         &vec![query_str, jfields.unwrap().into(), k],
                     )?;
-                    hits = self.jvm_object.to_rust(results)?;
+                    hits = self.jvm.to_rust(results)?;
                 } else {
                     let results =
-                        self.jvm_object
+                        self.jvm
                             .invoke(&self.searcher, "search", &vec![query_str, k])?;
-                    hits = self.jvm_object.to_rust(results)?;
+                    hits = self.jvm.to_rust(results)?;
                 }
             }
             LuceneQuery::Instance(_q) => {

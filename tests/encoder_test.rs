@@ -18,7 +18,7 @@ mod tests {
         let model_name = "bert-base-uncased";
         let revision = "refs/pr/70";
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, true, true, revision);
+            AutoDocumentEncoder::new(model_name, revision);
         let start = Instant::now();
 
         let texts = vec![
@@ -92,7 +92,7 @@ mod tests {
         let model_name = "castorini/mdpr-tied-pft-msmarco-ft-miracl-zh";
         let revision = "refs/pr/1";
         let document_encoder: AutoDocumentEncoder =
-            AutoDocumentEncoder::new(model_name, false, false, revision);
+            AutoDocumentEncoder::new(model_name, revision);
 
         let texts = vec![
             "Hello, I am a sentence!".to_string(),

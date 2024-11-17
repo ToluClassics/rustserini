@@ -1,18 +1,17 @@
-use clap::{ArgAction, Parser};
 use rustserini::encode::auto::AutoDocumentEncoder;
 use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
 use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
 use std::collections::HashMap;
 use std::time::Instant;
+use clap::{ArgAction, Parser};
+
 
 /// Simple program to encode a corpus and store the embeddings in a jsonl file
 /// Download the msmarco passage dataset using the below command:
 /// mkdir corpus/msmarco-passage
 /// wget  https://huggingface.co/datasets/Tevatron/msmarco-passage-corpus/resolve/main/corpus.jsonl.gz -P corpus/msmarco-passage
 /// cargo run --example json_embedding_writer --  --corpus corpus/msmarco-passage/corpus.jsonl.gz  --embeddings-dir corpus/msmarco-passage --encoder bert-base-uncased --tokenizer bert-base-uncased
-///
-///
-///
+
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -44,14 +43,6 @@ struct Args {
     /// Whether to store the embeddings in a faiss index or in a jsonl file
     #[arg(long, action=ArgAction::SetFalse)]
     to_faiss: bool,
-
-    /// Use lowercase in tokenizer
-    #[arg(long, action=ArgAction::SetTrue)]
-    lowercase: bool,
-
-    /// Strip accents in tokenizer
-    #[arg(long, action=ArgAction::SetTrue)]
-    strip_accents: bool,
 
     /// Encoder name or path
     #[arg(long)]
@@ -103,15 +94,8 @@ fn main() -> anyhow::Result<()> {
     let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir, args.embedding_dim);
     let _ = writer.open_file();
 
-    let lowercase = args.lowercase;
-    let strip_accents = args.strip_accents;
-
-    println!("Tokenizer lowercase: {:?}", lowercase);
-
     let encoder = AutoDocumentEncoder::new(
         &args.encoder,
-        lowercase,
-        strip_accents,
         &args.revision,
     );
 

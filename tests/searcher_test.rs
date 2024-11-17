@@ -11,7 +11,7 @@ mod tests {
         let model_name = "castorini/mdpr-tied-pft-msmarco-ft-miracl-zh";
         let revision = "refs/pr/1";
         let query_encoder: AutoQueryEncoder =
-            AutoQueryEncoder::new(model_name, true, true, revision);
+            AutoQueryEncoder::new(model_name, revision);
     
         let mut searcher = FaissSearcher::new(
             "corpus/msmarco-passage-mini/pyserini".to_string(),
@@ -44,7 +44,7 @@ mod tests {
         let model_name = "castorini/mdpr-tied-pft-msmarco-ft-miracl-zh";
         let revision = "refs/pr/1";
         let query_encoder: AutoQueryEncoder =
-            AutoQueryEncoder::new(model_name, true, true, revision);
+            AutoQueryEncoder::new(model_name, revision);
     
         let mut searcher = FaissSearcher::new(
             "corpus/msmarco-passage-mini/pyserini".to_string(),
@@ -80,7 +80,7 @@ mod tests {
     #[test]
     fn test_lucene_searcher() {
         let search_instance = LuceneSearcher::new(
-            "/Users/odunayoogundepo/Desktop/anserini/indexes/msmarco-passage/lucene-index-msmarco"
+            "../.."
                 .to_string(),
             None,
         )

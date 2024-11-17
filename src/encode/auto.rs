@@ -4,8 +4,8 @@ use crate::encode::base::DocumentEncoder;
 
 use anyhow::{anyhow, Error as E, Result};
 use hf_hub::{api::sync::Api, Cache, Repo, RepoType};
-use candle_core::{DType, Device, Tensor, IndexOp};
-use candle_nn::{embedding, VarBuilder};
+use candle_core::{DType, Device, Tensor};
+use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel,BertForMaskedLM, Config};
 use tokenizers::{PaddingParams, Tokenizer};
 
@@ -119,8 +119,6 @@ impl DocumentEncoder for AutoDocumentEncoder {
     // instantiating a new AutoDocumentEncoder instance
     fn new(
         model_name: &str,
-        lowercase: bool,
-        strip_accents: bool,
         revision: &str,
     ) -> AutoDocumentEncoder {
         let device = Device::Cpu;
