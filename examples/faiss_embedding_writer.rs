@@ -1,6 +1,6 @@
 use rustserini::encode::auto::AutoDocumentEncoder;
 use rustserini::encode::base::{DocumentEncoder, RepresentationWriter};
-use rustserini::encode::vector_writer::{JsonlCollectionIterator, JsonlRepresentationWriter};
+use rustserini::encode::vector_writer::{JsonlCollectionIterator, FaissRepresentationWriter};
 use std::collections::HashMap;
 use std::time::Instant;
 use clap::{ArgAction, Parser};
@@ -91,7 +91,7 @@ fn main() -> anyhow::Result<()> {
     let _ = iterator.load(args.corpus);
 
     println!("Initialize a representation writer and open a file to store the embeddings");
-    let mut writer = JsonlRepresentationWriter::new(&args.embeddings_dir, args.embedding_dim);
+    let mut writer = FaissRepresentationWriter::new(&args.embeddings_dir, args.embedding_dim);
     let _ = writer.open_file();
 
     let encoder = AutoDocumentEncoder::new(
@@ -117,8 +117,13 @@ fn main() -> anyhow::Result<()> {
 
         counter += 1;
         println!("Batch {} encoded", counter);
+
+        break;
     }
 
+    writer.save_index()?;
+    writer.save_docids()?;
+    
     let duration = start.elapsed();
     println!("Time elapsed in expensive_function() is: {:?}", duration);
 

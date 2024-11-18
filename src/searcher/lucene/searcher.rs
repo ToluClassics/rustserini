@@ -112,7 +112,7 @@ impl LuceneSearcher {
 
         match fields {
             Some(fields) => {
-                jfields = Some(self.jvm_object.java_map(
+                jfields = Some(self.jvm.java_map(
                     JavaClass::String,
                     JavaClass::Float,
                     fields,
@@ -123,13 +123,13 @@ impl LuceneSearcher {
             }
         }
 
-        let query_strings = self.jvm_object.java_list(JavaClass::String, queries)?;
-        let qid_strings = self.jvm_object.java_list(JavaClass::String, qids)?;
+        let query_strings = self.jvm.java_list(JavaClass::String, queries)?;
+        let qid_strings = self.jvm.java_list(JavaClass::String, qids)?;
         let k = InvocationArg::try_from(k)?.into_primitive()?;
         let threads = InvocationArg::try_from(threads)?.into_primitive()?;
 
         if Option::is_some(&jfields) {
-            let results = self.jvm_object.invoke(
+            let results = self.jvm.invoke(
                 &self.searcher,
                 "batch_search_fields",
                 &vec![
@@ -140,14 +140,14 @@ impl LuceneSearcher {
                     jfields.unwrap().into(),
                 ],
             )?;
-            hits = self.jvm_object.to_rust(results)?;
+            hits = self.jvm.to_rust(results)?;
         } else {
-            let results = self.jvm_object.invoke(
+            let results = self.jvm.invoke(
                 &self.searcher,
                 "batch_search",
                 &vec![query_strings.into(), qid_strings.into(), k, threads],
             )?;
-            hits = self.jvm_object.to_rust(results)?;
+            hits = self.jvm.to_rust(results)?;
         }
 
         Ok(hits)

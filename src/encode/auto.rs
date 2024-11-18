@@ -129,13 +129,13 @@ impl DocumentEncoder for AutoDocumentEncoder {
     fn encode(
         &self,
         texts: &Vec<String>,
-        titles: &Vec<String>,
+        titles: Option<&Vec<String>>,
         pooler_type: &str,
     ) -> Result<Tensor, E> {
         /*
         Encode a list of texts and/or titles into a list of vectors
         */
-        let texts = if !titles.is_empty() {
+        let texts = if let Some(titles) = titles  {
             texts
                 .iter()
                 .zip(titles.iter())

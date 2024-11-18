@@ -6,7 +6,7 @@ use faiss::{index_factory, Index, MetricType};
 use flate2::read::GzDecoder;
 use kdam::tqdm;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader, Write};
@@ -45,9 +45,9 @@ struct DataFields {
 
 #[records::record]
 pub struct AllInfo {
-    docid: Vec<String>,
-    texts: Vec<String>,
-    titles: Vec<String>,
+    pub docid: Vec<String>,
+    pub texts: Vec<String>,
+    pub titles: Vec<String>,
 }
 
 /// FaissRepresentationWriter is a struct that writes for writing embeddings to a faiss index
@@ -125,19 +125,23 @@ impl JsonlCollectionIterator {
 
             for line in tqdm!(lines) {
                 let line = line?;
-                let json: DataFields = serde_json::from_str(&line)?;
+                let json: Value = serde_json::from_str(&line)?;
 
-                let docid = &json.docid;
+                let docid = &json["id"];
                 all_doc_ids.push(docid.to_string());
 
                 for field in self.fields.to_vec() {
                     match field.as_str() {
+                        "contents" => {
+                            let value = &json["contents"];
+                            all_texts.push(value.to_string());
+                        }
                         "text" => {
-                            let value = &json.text;
+                            let value = &json["text"];
                             all_texts.push(value.to_string());
                         }
                         "title" => {
-                            let value = &json.title;
+                            let value = &json["title"];
                             all_titles.push(value.to_string());
                         }
                         _ => {}
@@ -232,22 +236,32 @@ impl JsonlCollectionIterator {
             .step_by(self.batch_size)
             .map(move |idx| {
                 let mut batch_info = HashMap::new();
-                let batch_docid: Vec<String> = self.all_info.docid[idx..idx + self.batch_size]
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect();
-                let batch_text: Vec<String> = self.all_info.texts[idx..idx + self.batch_size]
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect();
-                let batch_title: Vec<String> = self.all_info.titles[idx..idx + self.batch_size]
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect();
+                let batch_docid: Vec<String> = if idx + self.batch_size <= self.all_info.docid.len() {
+                    self.all_info.docid[idx..idx + self.batch_size]
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect()
+                } else {
+                    self.all_info.docid[idx..]
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect()
+                };
+
+                let batch_text: Vec<String> = if idx + self.batch_size <= self.all_info.texts.len() {
+                    self.all_info.texts[idx..idx + self.batch_size]
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect()
+                } else {
+                    self.all_info.texts[idx..]
+                        .iter()
+                        .map(|x| x.to_string())
+                        .collect()
+                };
 
                 batch_info.insert("id", batch_docid);
                 batch_info.insert("text", batch_text);
-                batch_info.insert("title", batch_title);
 
                 batch_info
             })

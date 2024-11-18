@@ -15,7 +15,7 @@ pub trait DocumentEncoder {
     fn encode(
         &self,
         texts: &Vec<String>,
-        titles: &Vec<String>,
+        titles: Option<&Vec<String>>,
         pooler_type: &str,
     ) -> Result<Tensor, Error>;
 }
