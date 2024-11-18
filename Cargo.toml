@@ -32,3 +32,7 @@ name = "json_embedding_writer"
 
 [[example]]
 name = "faiss_embedding_writer"
+
+[[bin]]
+name = "lucene_indexer"
+path = "src/searcher/lucene/index.rs"

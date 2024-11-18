@@ -1,5 +1,5 @@
 use crate::encode::auto::{
-    build_roberta_model_and_tokenizer, mean_pooling, Model
+    build_model_and_tokenizer, mean_pooling, Model
 };
 
 use candle_core::{Device, Tensor};
@@ -36,7 +36,7 @@ impl QueryEncoder for AutoQueryEncoder {
         revision: &str,
     ) -> Self {
         let device = Device::Cpu;
-        let (model, tokenizer) = build_roberta_model_and_tokenizer(model_name, false, "BertModel", revision).unwrap();
+        let (model, tokenizer) = build_model_and_tokenizer(model_name, false, revision).unwrap();
         Self { model, tokenizer, device }
     }
 

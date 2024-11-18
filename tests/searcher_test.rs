@@ -102,7 +102,7 @@ mod tests {
     #[test]
     fn test_batch_lucene_searcher() {
         let search_instance = LuceneSearcher::new(
-            "/Users/mac/Documents/castorini/anserini/indexes/msmarco-passage/lucene-index-msmarco",
+            "/Users/odunayoogundepo/Desktop/anserini/indexes/msmarco-passage/lucene-index-msmarco",
             None,
         )
         .unwrap();
