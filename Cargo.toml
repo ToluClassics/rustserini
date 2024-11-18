@@ -29,3 +29,10 @@ clap = { version = "4.5.21", features = ["derive"] }
 
 [[example]]
 name = "json_embedding_writer"
+
+[[example]]
+name = "faiss_embedding_writer"
+
+[[bin]]
+name = "lucene_indexer"
+path = "src/searcher/lucene/index.rs"

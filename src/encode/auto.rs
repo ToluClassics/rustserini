@@ -8,6 +8,7 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 use candle_transformers::models::bert::{BertModel,BertForMaskedLM, Config};
 use tokenizers::{PaddingParams, Tokenizer};
+use serde_json::Value;
 
 pub const FLOATING_DTYPE: DType = DType::F32;
 pub const LONG_DTYPE: DType = DType::I64;
@@ -30,7 +31,7 @@ pub struct AutoDocumentEncoder {
 }
 
 
-pub fn build_roberta_model_and_tokenizer(model_name_or_path: impl Into<String>, offline: bool, model_type: &str, revision: &str) -> Result<(Model, Tokenizer)> {
+pub fn build_model_and_tokenizer(model_name_or_path: impl Into<String>, offline: bool, revision: &str) -> Result<(Model, Tokenizer)> {
     let device = Device::Cpu;
     let (model_id, revision) = (model_name_or_path.into(), revision.into());
     let repo = Repo::with_revision(model_id, RepoType::Model, revision);
@@ -78,17 +79,22 @@ pub fn build_roberta_model_and_tokenizer(model_name_or_path: impl Into<String>, 
 
     let vb =
         unsafe { VarBuilder::from_mmaped_safetensors(&[weights_filename], FLOATING_DTYPE, &device)? };
+    
+    let model_configuration: Value = serde_json::from_str(&config)?;
+    let model_architecture = &model_configuration["architectures"][0].as_str();
 
-    let model = match model_type {
-        "BertModel" => {
+    println!("model_architecture: {:?}", model_architecture);
+
+    let model = match model_architecture {
+        Some("BertModel") => {
             let config: Config = serde_json::from_str(&config)?;
             let model = BertModel::load(vb, &config)?;
             Model::BertModel {model}
         }
-        "BertForMaskedLM" => {
+        Some("BertForMaskedLM") => {
             let config: Config = serde_json::from_str(&config)?;
-            let model = BertForMaskedLM::load(vb, &config)?;
-            Model::BertForMaskedLM {model}
+            let model = BertModel::load(vb, &config)?;
+            Model::BertModel {model}
         }
         _ => panic!("Invalid model_type")
     };
@@ -122,20 +128,20 @@ impl DocumentEncoder for AutoDocumentEncoder {
         revision: &str,
     ) -> AutoDocumentEncoder {
         let device = Device::Cpu;
-        let (model, tokenizer) = build_roberta_model_and_tokenizer(model_name, false, "BertModel", revision).unwrap();
+        let (model, tokenizer) = build_model_and_tokenizer(model_name, false, revision).unwrap();
         Self { model, tokenizer, device }
     }
 
     fn encode(
         &self,
         texts: &Vec<String>,
-        titles: &Vec<String>,
+        titles: Option<&Vec<String>>,
         pooler_type: &str,
     ) -> Result<Tensor, E> {
         /*
         Encode a list of texts and/or titles into a list of vectors
         */
-        let texts = if !titles.is_empty() {
+        let texts = if let Some(titles) = titles  {
             texts
                 .iter()
                 .zip(titles.iter())

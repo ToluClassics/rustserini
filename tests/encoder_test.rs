@@ -26,7 +26,7 @@ mod tests {
             "And another sentence.".to_string(),
         ];
         let titles = vec!["Title 1".to_string(), "Title 2".to_string()];
-        let embeddings = document_encoder.encode(&texts, &titles, "cls")?;
+        let embeddings = document_encoder.encode(&texts, Some(&titles), "cls")?;
 
         let embeddings = embeddings.flatten_all()?;
         let embeddings = embeddings.to_vec1()?;
@@ -102,7 +102,7 @@ mod tests {
             "Title 1".to_string(),
             "Title 2".to_string()
             ];
-        let embeddings = document_encoder.encode(&texts, &titles, "cls")?;
+        let embeddings = document_encoder.encode(&texts, Some(&titles), "cls")?;
 
         let embeddings = embeddings.flatten_all()?;
         let embeddings = embeddings.to_vec1()?;
